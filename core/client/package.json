@@ -1,0 +1,19 @@
+{
+  "name": "@super-mario/gateway",
+  "module": "index.ts",
+  "type": "module",
+  "version": "0.1.0",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "dev": "bun --watch ./index.ts",
+    "build": "bun build ./index.ts --outdir ./dist"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/node": "^22.9.0"
+  },
+  "peerDependencies": {
+    "typescript": "^5.6.3"
+  }
+}
