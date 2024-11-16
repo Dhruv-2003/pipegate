@@ -22,6 +22,7 @@ contract ChannelFactory {
 
     event channelCreated(
         uint indexed channelId,
+        address channelAddress,
         address indexed sender,
         address indexed recipient,
         uint256 duration,
@@ -70,6 +71,7 @@ contract ChannelFactory {
 
         emit channelCreated(
             totalChannels,
+            address(channel),
             sender,
             recipient,
             _duration,
