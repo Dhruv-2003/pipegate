@@ -146,43 +146,54 @@ export class PaymentChannelSDK {
     rawBody: any
   ): Promise<SignedRequest> {
     try {
-      // rawBody is supposed to be a Bytes array
-      // If undefined, set to empty buffer
-      const bodyBytes = rawBody ? toBytes(rawBody) : new Uint8Array(0);
+      // Channel ID (32 bytes)
+      const channelIdPadded = pad(toHex(BigInt(paymentChannel.channel_id)), {
+        size: 32,
+      }) as `0x${string}`;
 
-      const message = {
-        channelId: paymentChannel.channel_id,
-        balance: paymentChannel.balance,
-        nonce: this.getNonce(paymentChannel.channel_id),
-        requestData: bodyBytes,
-        timestamp: Math.floor(Date.now() / 1000),
-      };
+      // Balance (32 bytes)
+      const balancePadded = pad(toHex(BigInt(paymentChannel.balance)), {
+        size: 32,
+      }) as `0x${string}`;
 
-      console.log("\nMessage to be signed:", message);
+      // Nonce (32 bytes)
+      const noncePadded = pad(
+        toHex(BigInt(this.getNonce(paymentChannel.channel_id))),
+        { size: 32 }
+      ) as `0x${string}`;
 
+      // Convert raw body to proper format
+      // Use the actual request body instead of headers
+      const bodyBytes = toBytes(
+        typeof rawBody === "string" ? rawBody : JSON.stringify(rawBody)
+      );
+
+      // Concatenate all parts
       const encodedMessage = concat([
-        toHex(message.channelId, { size: 32 }),
-        toHex(message.balance, { size: 32 }),
-        toHex(message.nonce, { size: 32 }),
-        toHex(message.requestData),
+        channelIdPadded,
+        balancePadded,
+        noncePadded,
+        toHex(bodyBytes) as `0x${string}`,
       ]);
 
-      console.log("Encoded message:", encodedMessage);
+      console.log("\nMessage Components:");
+      console.log("Channel ID:", channelIdPadded);
+      console.log("Balance:", balancePadded);
+      console.log("Nonce:", noncePadded);
+      console.log("Body (hex):", toHex(bodyBytes));
+      console.log("Final Message:", encodedMessage);
 
-      const signature = await this.wallet.signMessage(encodedMessage);
+      const signature = await this.wallet.signMessage(
+        toBeArray(encodedMessage)
+      );
 
       return {
         message: encodedMessage,
         signature,
-        timestamp: message.timestamp.toString(), // Already in seconds
+        timestamp: Math.floor(Date.now() / 1000).toString(),
       };
     } catch (err) {
-      if (axios.isAxiosError(err)) {
-        console.error(formatAxiosError(err));
-      } else {
-        // @ts-ignore
-        console.error("Error:", err.message);
-      }
+      console.error("Sign Request Error:", err);
       throw err;
     }
   }
@@ -194,46 +205,31 @@ export class PaymentChannelSDK {
     return {
       request: async (config: InternalAxiosRequestConfig) => {
         try {
-          // Get channel state
           const channelState = this.channelStates.get(channelId);
           if (!channelState) {
             throw new Error(`No payment channel found for ID: ${channelId}`);
           }
 
-          const rawBody = config.data; // Request body
-          console.log("\nRequest Body:", rawBody);
+          const signedRequest = await this.signRequest(
+            channelState,
+            config.data
+          );
 
-          const signedRequest = await this.signRequest(channelState, rawBody);
-
-          // convert message and signature to bytes
-          // const messageBytes = toBytes(JSON.stringify(signedRequest.message));
-          // const signatureBytes = toHex(signedRequest.signature);
-
-          // // concat message and signature bytes
-          // const concatenatedBytes = concat([messageBytes, signatureBytes]);
-
-          // // convert to hex
-          // const encodedData = toHex(concatenatedBytes);
-
-          console.log("Payment-data", JSON.stringify(channelState));
-
-          // @ts-ignore
-          config.headers = {
+          config.headers = new axios.AxiosHeaders({
             ...config.headers,
             "x-Message": signedRequest.message,
+            "x-Signature": signedRequest.signature,
             "x-Timestamp": signedRequest.timestamp,
             "x-Payment": JSON.stringify(channelState),
-            "x-Signature": signedRequest.signature,
-          };
+          });
 
-          // console.log("Request Headers:", config.headers);
           return config;
         } catch (err) {
           if (axios.isAxiosError(err)) {
-            console.error(formatAxiosError(err));
+            // console.error(formatAxiosError(err));
+            console.error("Error -kushagra2:");
           } else {
-            // @ts-ignore
-            console.error("Error:", err.message);
+            console.error("Error -kushagra2:");
           }
           throw err;
         }
@@ -247,50 +243,41 @@ export class PaymentChannelSDK {
   createResponseInterceptor() {
     return {
       response: (response: any) => {
+        console.log("Response Status:", response.status);
+        console.log("Response Headers:", response.headers);
+        console.log("Response Data:", response.data);
+
+        // Proceed with channel state extraction
+        const paymentChannelStr = response.headers["x-Payment"];
+        if (!paymentChannelStr) {
+          return response;
+        }
+        
         try {
-          const paymentChannelStr = response.headers["x-payment"];
+          const paymentChannelStr = response.headers["x-Payment"];
           if (!paymentChannelStr) {
-            console.log("\nNo payment channel data in response");
             return response;
           }
 
           const paymentChannel: PaymentChannelResponse =
             JSON.parse(paymentChannelStr);
+          const channelId = paymentChannel.channel_id;
 
-          // Convert expiration to seconds if it's in milliseconds
-          if (paymentChannel.expiration.length > 10) {
-            // Simple check for milliseconds
-            paymentChannel.expiration = Math.floor(
-              parseInt(paymentChannel.expiration) / 1000
-            ).toString();
-          }
-
-          const requestMessage = JSON.parse(
-            response.config.headers["x-Message"]
-          );
-          const channelId = requestMessage.channelId;
-
-          // update channel state
+          // Update channel state
           this.channelStates.set(channelId, paymentChannel);
 
-          // update nonce
+          // Update nonce
           const nextNonce = BigInt(paymentChannel.nonce) + 1n;
           this.nonceMap.set(channelId, Number(nextNonce));
-
-          console.log("\nPayment Channel Update:");
-          console.log("Channel ID:", channelId);
-          console.log("Current Nonce:", paymentChannel.nonce);
-          console.log("Next Nonce:", nextNonce.toString());
-          console.log("Balance:", paymentChannel.balance);
-          console.log("Expiration:", paymentChannel.expiration, "(seconds)");
 
           return response;
         } catch (err) {
           if (axios.isAxiosError(err)) {
-            console.error(formatAxiosError(err));
+            // console.error(formatAxiosError(err));
+            console.error("Error -kushagra3:");
           } else {
-            // @ts-ignore
-            console.error("Error:", err.message);
+            // console.error("Error:", err.message);
+            console.error("Error -kushagra3:");
           }
           throw err;
         }
