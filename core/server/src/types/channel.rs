@@ -1,3 +1,5 @@
+use std::cell::RefCell;
+
 use alloy::{
     primitives::{Address, U256},
     signers::Signature,
@@ -6,6 +8,7 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct PaymentChannel {
+    pub channel_address: Address,
     pub sender: Address,
     pub recipient: Address,
     pub balance: U256,

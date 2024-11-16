@@ -8,9 +8,13 @@ use std::{
 };
 
 use alloy::{
-    primitives::{Address, U256},
+    contract::{ContractInstance, Interface},
+    network::Ethereum,
+    primitives::{address, Address, U256},
+    providers::ProviderBuilder,
     signers::Signature,
     sol,
+    transports::http::{Client, Http},
 };
 use alloy::{providers::Provider, transports::http::reqwest::Url};
 use tokio::sync::RwLock;
@@ -24,10 +28,26 @@ use crate::{error::AuthError, types::PaymentChannel};
 //     "src/abi/ChannelFactory.json"
 // );
 
-// sol!(
-//     "../contract/src/ChannelFactory.sol",
-//     "../contract/src/PaymentChannel.sol",
-// );
+// sol!("../contract/src/ChannelFactory.sol",);
+
+// sol!("../contract/src/PaymentChannel.sol");
+
+sol! {
+    contract IERC20 {
+        function transferFrom(
+            address sender,
+            address recipient,
+            uint256 amount
+        ) external returns (bool);
+
+        function transfer(
+            address recipient,
+            uint256 amount
+        ) external returns (bool);
+
+        function balanceOf(address account) external view returns (uint256);
+    }
+}
 
 #[derive(Clone)]
 pub struct ChannelState {
@@ -76,17 +96,56 @@ impl ChannelState {
         channel_id: U256,
         payment_channel: &PaymentChannel,
     ) -> Result<(), AuthError> {
-        ///
         // self.network.validate_channel(channel_id, balance).await
+        let provider = ProviderBuilder::new().on_http(self.network_rpc_url.clone());
+
+        // Get the contract ABI.
+        let path = std::env::current_dir()
+            .unwrap()
+            .join("../contract/src/PaymentChannel.sol");
+
+        // Read the artifact which contains `abi`, `bytecode`, `deployedBytecode` and `metadata`.
+        let artifact = std::fs::read(path).expect("Failed to read artifact");
+        let json: serde_json::Value = serde_json::from_slice(&artifact).unwrap();
+
+        // Get `abi` from the artifact.
+        let abi_value = json.get("abi").expect("Failed to get ABI from artifact");
+        let abi = serde_json::from_str(&abi_value.to_string()).unwrap();
+
+        let payment_channel_contract: ContractInstance<Http<Client>, _, Ethereum> =
+            ContractInstance::new(
+                payment_channel.channel_address,
+                provider.clone(),
+                Interface::new(abi),
+            );
 
         // Fetch the balance for this payment channel from the contract implementation on the blockchain
+        let balance_value = payment_channel_contract
+            .function("getBalance", &[])
+            .unwrap()
+            .call()
+            .await
+            .unwrap();
+        let balance = balance_value.first().unwrap().as_uint().unwrap().0;
 
         // If the balance is less than the balance in the local state, return an error
-        // if payment_channel.balance < balance {
-        //     return Err(AuthError::InsufficientFunds);
-        // }
+        if payment_channel.balance < balance {
+            return Err(AuthError::InsufficientBalance);
+        }
 
         // Fetch Expiration time for the channel from the contract
+        let expiration_value = payment_channel_contract
+            .function("expiration", &[])
+            .unwrap()
+            .call()
+            .await
+            .unwrap();
+
+        let expiration = expiration_value.first().unwrap().as_uint().unwrap().0;
+
+        if payment_channel.expiration != expiration {
+            return Err(AuthError::Expired);
+        }
 
         // Verify other data from the contract as well for the payment channel
         Ok(())

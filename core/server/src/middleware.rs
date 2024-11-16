@@ -1,4 +1,7 @@
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::{
+    cell::RefCell,
+    time::{SystemTime, UNIX_EPOCH},
+};
 
 use alloy::{hex, primitives::U256, signers::Signature};
 use axum::{
@@ -75,6 +78,9 @@ pub async fn auth_middleware(
     let mut payment_channel: PaymentChannel =
         serde_json::from_str(payment_data).map_err(|_| StatusCode::BAD_REQUEST)?;
 
+    // Update Balance for updating the local state
+    payment_channel.balance -= payment_amount;
+
     // Get request body
     let (parts, body) = request.into_parts();
     let body_bytes = match axum::body::to_bytes(body, usize::MAX).await {
@@ -97,7 +103,7 @@ pub async fn auth_middleware(
     let signed_request = SignedRequest {
         message: message.clone(),
         signature,
-        payment_channel: payment_channel.clone(),
+        payment_channel: payment_channel,
         payment_amount,
     };
 
@@ -105,9 +111,6 @@ pub async fn auth_middleware(
     match verify_and_update_channel(&state, &signed_request).await {
         Ok(payment_channel) => {
             let request = Request::from_parts(parts, Body::from(body_bytes));
-
-            // TODO: Update Balance for updating the local state
-            payment_channel.balance -= payment_amount;
 
             // Modify the response headers to include the payment channel data
             let mut response = next.run(request).await;
