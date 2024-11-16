@@ -72,7 +72,7 @@ pub async fn auth_middleware(
     let message = hex::decode(message).map_err(|_| StatusCode::BAD_REQUEST)?;
 
     // Parse payment channel data
-    let payment_channel: PaymentChannel =
+    let mut payment_channel: PaymentChannel =
         serde_json::from_str(payment_data).map_err(|_| StatusCode::BAD_REQUEST)?;
 
     // Get request body
@@ -105,6 +105,9 @@ pub async fn auth_middleware(
     match verify_and_update_channel(&state, &signed_request).await {
         Ok(payment_channel) => {
             let request = Request::from_parts(parts, Body::from(body_bytes));
+
+            // TODO: Update Balance for updating the local state
+            payment_channel.balance -= payment_amount;
 
             // Modify the response headers to include the payment channel data
             let mut response = next.run(request).await;
@@ -181,8 +184,6 @@ async fn verify_and_update_channel(
         // 2. Verify the expiration is in the future
         // 3. Verify the channel ID is correct
     }
-
-    // TODO: Update balance or amount whichever we need to do here
 
     // Update or insert the channel
     channels.insert(

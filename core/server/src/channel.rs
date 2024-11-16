@@ -7,28 +7,41 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-use alloy::providers::Provider;
 use alloy::{
     primitives::{Address, U256},
     signers::Signature,
+    sol,
 };
+use alloy::{providers::Provider, transports::http::reqwest::Url};
 use tokio::sync::RwLock;
 
 use crate::{error::AuthError, types::PaymentChannel};
+
+// sol!(
+//     #[allow(missing_docs)]
+//     #[sol(rpc)]
+//     ChannelFactory,
+//     "src/abi/ChannelFactory.json"
+// );
+
+// sol!(
+//     "../contract/src/ChannelFactory.sol",
+//     "../contract/src/PaymentChannel.sol",
+// );
 
 #[derive(Clone)]
 pub struct ChannelState {
     pub(crate) channels: Arc<RwLock<HashMap<U256, PaymentChannel>>>, // All the channels the current server has with other user
     rate_limiter: Arc<RwLock<HashMap<Address, (u64, SystemTime)>>>,  // Rate limiter for the user
-                                                                     // provider: Arc<dyn Provider>, // Provider to interact with the blockchain
+    network_rpc_url: Url, // provider: Arc<dyn Provider>, // Provider to interact with the blockchain
 }
 
 impl ChannelState {
-    pub fn new() -> Self {
+    pub fn new(rpc_url: Url) -> Self {
         Self {
             channels: Arc::new(RwLock::new(HashMap::new())),
             rate_limiter: Arc::new(RwLock::new(HashMap::new())),
-            // provider: Arc::new(provider),
+            network_rpc_url: rpc_url,
         }
     }
 

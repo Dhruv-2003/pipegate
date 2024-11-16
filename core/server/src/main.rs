@@ -9,13 +9,12 @@ pub async fn main() {
 
     // add middleware we created for protecting routes
     // Create a new instance of our state
-    let rpc_url = "https://1rpc.io/sepolia".parse().unwrap();
-    let provider = ProviderBuilder::new().on_http(rpc_url);
+    let rpc_url: alloy::transports::http::reqwest::Url = "https://1rpc.io/sepolia".parse().unwrap();
 
     // NOTE: Re check on this to work around payment amount
     let payment_amount = U256::from(1_000_000_000_000_000u128); // 0.001 ETH in wei
 
-    let state = ChannelState::new();
+    let state = ChannelState::new(rpc_url.clone());
 
     let app = Router::new()
         // `GET /` goes to `root`
