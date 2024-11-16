@@ -17,6 +17,12 @@ ChannelFactory - 0x16b12b0002487a8FB3B3877a71Ae9258d0889E1B
 
 https://book.getfoundry.sh/
 
+## Methods
+
+### Registering as an API provider
+
+### Creating a private channel
+
 ## Usage
 
 ### Build
@@ -68,3 +74,5 @@ $ forge --help
 $ anvil --help
 $ cast --help
 ```
+
+s
