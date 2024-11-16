@@ -171,6 +171,10 @@ contract PaymentChannel {
         emit timeoutClaimed(channelId, sender, recipient, block.timestamp);
     }
 
+    function getBalance() public view returns (uint256) {
+        return token.balanceOf(address(this));
+    }
+
     //######  UTILITY FUNCTIONS ######//
 
     function recoverSigner(

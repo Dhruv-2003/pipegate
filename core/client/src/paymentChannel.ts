@@ -41,8 +41,9 @@ export class PaymentChannelSDK {
   constructor() {
     // todo: note, add your private key here
     this.wallet = new Wallet(
-      ""
+      "6d2f70a47ddf455feb6a785b9787265f28897546bd1316224300aed627ef8cfc"
     );
+
     // if (!config.privateKey) {
     //   throw new Error("Private key is required");
     // }

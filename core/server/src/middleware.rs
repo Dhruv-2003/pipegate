@@ -30,6 +30,8 @@ pub async fn auth_middleware(
         .and_then(|t| t.parse::<u64>().ok())
         .ok_or(StatusCode::BAD_REQUEST)?;
 
+    println!("Timestamp: {}", timestamp);
+
     let now = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap()
@@ -61,25 +63,44 @@ pub async fn auth_middleware(
         .to_str()
         .map_err(|_| StatusCode::BAD_REQUEST)?;
 
+    // Print all the headers
+    println!("Signature: {}", signature);
+    println!("Message: {}", message);
+    println!("Payment Data: {}", payment_data);
+
     // Parse signature
     let signature = hex::decode(signature.trim_start_matches("0x"))
-        .map_err(|_| StatusCode::BAD_REQUEST)
+        .map_err(|_| {
+            println!("Failed: Signature decode");
+            StatusCode::BAD_REQUEST
+        })
         .and_then(|bytes| {
-            Signature::try_from(bytes.as_slice()).map_err(|_| StatusCode::BAD_REQUEST)
+            Signature::try_from(bytes.as_slice()).map_err(|_| {
+                println!("Failed: Signature conversion");
+                StatusCode::BAD_REQUEST
+            })
         })?;
 
     // Parse message
-    let message = hex::decode(message).map_err(|_| StatusCode::BAD_REQUEST)?;
+    let message = hex::decode(message).map_err(|_| {
+        println!("Failed: Message decode");
+        StatusCode::BAD_REQUEST
+    })?;
 
     // Parse payment channel data
-    let mut payment_channel: PaymentChannel =
-        serde_json::from_str(payment_data).map_err(|_| StatusCode::BAD_REQUEST)?;
+    let mut payment_channel: PaymentChannel = serde_json::from_str(payment_data).map_err(|_| {
+        println!("Failed: Payment data decode");
+        StatusCode::BAD_REQUEST
+    })?;
 
     // Get request body
     let (parts, body) = request.into_parts();
     let body_bytes = match axum::body::to_bytes(body, usize::MAX).await {
         Ok(bytes) => bytes,
-        Err(_) => return Err(StatusCode::BAD_REQUEST),
+        Err(_) => {
+            println!("Failed: Body decode");
+            return Err(StatusCode::BAD_REQUEST);
+        }
     };
 
     // Verify that the message matches what we expect
@@ -90,14 +111,18 @@ pub async fn auth_middleware(
         &body_bytes,
     );
 
+    // Update Balance for updating the local state
+    payment_channel.balance -= payment_amount;
+
     if message != reconstructed_message {
+        println!("Failed: Message mismatch");
         return Err(StatusCode::BAD_REQUEST);
     }
 
     let signed_request = SignedRequest {
         message: message.clone(),
         signature,
-        payment_channel: payment_channel.clone(),
+        payment_channel: payment_channel,
         payment_amount,
     };
 
@@ -105,9 +130,6 @@ pub async fn auth_middleware(
     match verify_and_update_channel(&state, &signed_request).await {
         Ok(payment_channel) => {
             let request = Request::from_parts(parts, Body::from(body_bytes));
-
-            // TODO: Update Balance for updating the local state
-            payment_channel.balance -= payment_amount;
 
             // Modify the response headers to include the payment channel data
             let mut response = next.run(request).await;
