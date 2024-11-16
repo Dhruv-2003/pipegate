@@ -1,3 +1,12 @@
+export interface PaymentChannelResponse {
+  sender: string;
+  recipient: string;
+  balance: string;
+  nonce: string;
+  expiration: string;
+  channel_id: string;
+}
+
 export interface RequestConfig {
   amount: string;
   data: any;
@@ -15,11 +24,9 @@ export interface SignedRequest {
   timestamp: string;
 }
 
-export interface PaymentChannelResponse {
-  sender: string;
+export interface CreateChannelParams {
   recipient: string;
-  balance: string;
-  nonce: string;
-  expiration: string;
-  channel_id: string;
+  duration: number;
+  tokenAddress: string;
+  amount: string;
 }

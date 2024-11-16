@@ -21,6 +21,7 @@
     "@ethersproject/abstract-signer": "^5.7.0",
     "@ethersproject/providers": "^5.7.2",
     "axios": "^1.7.7",
+    "dotenv": "^16.4.5",
     "ethers": "^6.13.4"
   }
 }
