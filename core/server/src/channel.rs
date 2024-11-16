@@ -24,7 +24,7 @@ pub struct ChannelState {
 }
 
 impl ChannelState {
-    pub fn new(provider: impl Provider) -> Self {
+    pub fn new() -> Self {
         Self {
             channels: Arc::new(RwLock::new(HashMap::new())),
             rate_limiter: Arc::new(RwLock::new(HashMap::new())),
