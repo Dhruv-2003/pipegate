@@ -60,11 +60,9 @@ impl ChannelState {
     pub async fn validate_channel(
         &self,
         channel_id: U256,
-        channel_info: &PaymentChannel,
+        payment_channel: &PaymentChannel,
     ) -> Result<(), AuthError> {
         // self.network.validate_channel(channel_id, balance).await
-        let channel = self.channels.read().await;
-        let payment_channel = channel.get(&channel_id).ok_or(AuthError::ChannelNotFound)?;
 
         // Fetch the balance for this payment channel from the contract implementation on the blockchain
 
