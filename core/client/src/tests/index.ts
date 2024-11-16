@@ -23,17 +23,14 @@ async function testInterceptor() {
     console.log(`\nMaking request with amount: ${amount}`);
 
     try {
-      const response = await axiosInstance.get(
-        "https://api.coindesk.com/v1/bpi/currentprice.json",
-        {
-          headers: {
-            "x-payment-amount": amount,
-          },
-          data: {
-            test: "data",
-          },
-        }
-      );
+      const response = await axiosInstance.get("http://localhost:3000/", {
+        headers: {
+          "x-payment-amount": amount,
+        },
+        data: {
+          test: "data",
+        },
+      });
 
       console.log("\nRequest Headers:", response.config.headers);
       const message = JSON.parse(response.config.headers["x-message"]);
