@@ -17,6 +17,8 @@ interface IERC20 {
 }
 
 contract PaymentChannel {
+    bool isInit;
+
     uint256 public channelId; // TODO: Could be like a hash of the sender infos or just a counter identifier
 
     address public sender;
@@ -69,18 +71,18 @@ contract PaymentChannel {
         uint256 timestamp
     );
 
-    constructor() {}
-
     // Initialize the channel
+    // NOTE: Needs the sender to approve the contract to spend the token amount
     function init(
         address _recipient,
+        address _sender,
         uint256 _duration,
         address _tokenAddress,
         uint256 _amount,
         uint256 _price,
         uint256 _channelId
-    ) external {
-        sender = msg.sender;
+    ) public {
+        sender = _sender;
         recipient = _recipient;
         expiration = block.timestamp + _duration;
 
@@ -90,6 +92,8 @@ contract PaymentChannel {
 
         price = _price;
         channelId = _channelId;
+
+        isInit = true;
 
         emit channelCreated(
             channelId,
