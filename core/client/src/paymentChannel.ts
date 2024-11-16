@@ -18,6 +18,9 @@ import type { Provider } from "ethers";
 import type { Signer } from "ethers";
 import { channelFactoryABI } from "./abi/channel-factory";
 import "dotenv/config";
+import { concat, toBytes, toHex } from "viem";
+import { formatAxiosError } from "./utils";
+import axios from "axios";
 
 interface SDKConfig {
   privateKey: string;
@@ -95,7 +98,6 @@ export class PaymentChannelSDK {
         throw new Error("Channel creation event not found");
       }
 
-      // get channel details from event
       const channelId = event.args.channelId.toString();
       const channelAddress = event.args.channelAddress;
 
@@ -110,8 +112,13 @@ export class PaymentChannelSDK {
 
       return channelId;
     } catch (err) {
-      const error = err as Error;
-      throw new Error(`Failed to create payment channel: ${error.message}`);
+      if (axios.isAxiosError(err)) {
+        console.error(formatAxiosError(err));
+      } else {
+        // @ts-ignore
+        console.error("Error:", err.message);
+      }
+      throw err;
     }
   }
 
@@ -144,7 +151,7 @@ export class PaymentChannelSDK {
         amount: request.amount,
         nonce: this.getNonce(channelId),
         requestData: hexlify(bodyBytes),
-        timestamp: Date.now(),
+        timestamp: Math.floor(Date.now() / 1000),
       };
 
       console.log("\nMessage to be signed:", message);
@@ -167,11 +174,16 @@ export class PaymentChannelSDK {
       return {
         message,
         signature,
-        timestamp: message.timestamp.toString(),
+        timestamp: message.timestamp.toString(), // Already in seconds
       };
     } catch (err) {
-      const error = err as Error;
-      throw new Error(`failed to sign request: ${error.message}`);
+      if (axios.isAxiosError(err)) {
+        console.error(formatAxiosError(err));
+      } else {
+        // @ts-ignore
+        console.error("Error:", err.message);
+      }
+      throw err;
     }
   }
 
@@ -182,29 +194,53 @@ export class PaymentChannelSDK {
     return {
       request: async (config: any) => {
         try {
+          // Get channel state
+          const channelState = this.channelStates.get(channelId);
+          if (!channelState) {
+            throw new Error(`No payment channel found for ID: ${channelId}`);
+          }
+
           const rawBody = config.data;
 
           const signedRequest = await this.signRequest(
             {
-              amount: config.headers["x-payment-amount"] || "0",
+              amount: "0",
               data: config.data || {},
             },
             channelId,
             rawBody
           );
 
+          // convert message and signature to bytes
+          const messageBytes = toBytes(JSON.stringify(signedRequest.message));
+          const signatureBytes = toHex(signedRequest.signature);
+
+          // concat message and signature bytes
+          const concatenatedBytes = concat([messageBytes, signatureBytes]);
+
+          // convert to hex
+          const encodedData = toHex(concatenatedBytes);
+
+          console.log("kushagra payment-data", JSON.stringify(channelState));
+
           config.headers = {
             ...config.headers,
-            "x-signature": signedRequest.signature,
-            "x-message": JSON.stringify(signedRequest.message),
-            "x-timestamp": signedRequest.timestamp,
+            "x-Message": encodedData,
+            "x-Timestamp": signedRequest.timestamp,
+            "x-Payment": JSON.stringify(channelState),
+            "x-Signature": signedRequest.signature,
           };
 
-          console.log("Request Headers:", config.headers);
+          // console.log("Request Headers:", config.headers);
           return config;
         } catch (err) {
-          const error = err as Error;
-          throw new Error(`Failed to process request: ${error.message}`);
+          if (axios.isAxiosError(err)) {
+            console.error(formatAxiosError(err));
+          } else {
+            // @ts-ignore
+            console.error("Error:", err.message);
+          }
+          throw err;
         }
       },
     };
@@ -225,8 +261,17 @@ export class PaymentChannelSDK {
 
           const paymentChannel: PaymentChannelResponse =
             JSON.parse(paymentChannelStr);
+
+          // Convert expiration to seconds if it's in milliseconds
+          if (paymentChannel.expiration.length > 10) {
+            // Simple check for milliseconds
+            paymentChannel.expiration = Math.floor(
+              parseInt(paymentChannel.expiration) / 1000
+            ).toString();
+          }
+
           const requestMessage = JSON.parse(
-            response.config.headers["x-message"]
+            response.config.headers["x-Message"]
           );
           const channelId = requestMessage.channelId;
 
@@ -242,12 +287,17 @@ export class PaymentChannelSDK {
           console.log("Current Nonce:", paymentChannel.nonce);
           console.log("Next Nonce:", nextNonce.toString());
           console.log("Balance:", paymentChannel.balance);
-          console.log("Expiration:", paymentChannel.expiration);
+          console.log("Expiration:", paymentChannel.expiration, "(seconds)");
 
           return response;
         } catch (err) {
-          const error = err as Error;
-          throw new Error(`Failed to process response: ${error.message}`);
+          if (axios.isAxiosError(err)) {
+            console.error(formatAxiosError(err));
+          } else {
+            // @ts-ignore
+            console.error("Error:", err.message);
+          }
+          throw err;
         }
       },
     };
