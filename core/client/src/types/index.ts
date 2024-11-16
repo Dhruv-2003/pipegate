@@ -14,3 +14,12 @@ export interface SignedRequest {
   signature: string;
   timestamp: string;
 }
+
+export interface PaymentChannelResponse {
+  sender: string;
+  recipient: string;
+  balance: string;
+  nonce: string;
+  expiration: string;
+  channel_id: string;
+}

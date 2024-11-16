@@ -3,33 +3,44 @@ import { PaymentChannelSDK } from "../paymentChannel";
 
 async function testInterceptor() {
   const sdk = new PaymentChannelSDK();
-
-  // create axios instance
   const axiosInstance = axios.create();
 
-  // add interceptor
+  const channelId = "test-channel-id";
+
+  // add request and response interceptors
   axiosInstance.interceptors.request.use(
-    sdk.createRequestInterceptor("test-channel-id").request
+    sdk.createRequestInterceptor(channelId).request
   );
 
-  try {
-    // make test request
-    const response = await axiosInstance.get(
-      "https://api.coindesk.com/v1/bpi/currentprice.json",
-      {
-        headers: {
-          "x-payment-amount": "0.01",
-        },
-        data: {
-          test: "data",
-        },
-      }
-    );
+  axiosInstance.interceptors.response.use(
+    sdk.createResponseInterceptor().response
+  );
 
-    console.log("Modified Request Headers:", response.config.headers);
-    console.log("Response:", response.data);
-  } catch (error) {
-    console.error("Error:", error);
+  // test multiple requests to see nonce increment
+  const amounts = ["0.01", "0.02", "0.03"];
+
+  for (const amount of amounts) {
+    console.log(`\nMaking request with amount: ${amount}`);
+
+    try {
+      const response = await axiosInstance.get(
+        "https://api.coindesk.com/v1/bpi/currentprice.json",
+        {
+          headers: {
+            "x-payment-amount": amount,
+          },
+          data: {
+            test: "data",
+          },
+        }
+      );
+
+      console.log("\nRequest Headers:", response.config.headers);
+      const message = JSON.parse(response.config.headers["x-message"]);
+      console.log("\nNonce used:", message.nonce);
+    } catch (error) {
+      console.error("\nError:", error);
+    }
   }
 }
 

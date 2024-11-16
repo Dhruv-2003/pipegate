@@ -1,8 +1,28 @@
-import { keccak256, randomBytes, hexlify, toBeArray } from "ethers";
+import { keccak256, randomBytes, hexlify, toBeArray, Wallet } from "ethers";
 import { AbiCoder } from "ethers";
-import type { RequestConfig, SignedRequest } from "./types";
+import type {
+  PaymentChannelResponse,
+  RequestConfig,
+  SignedRequest,
+} from "./types";
 
 export class PaymentChannelSDK {
+  private wallet: Wallet;
+  private nonceMap: Map<string, number> = new Map();
+
+  constructor() {
+    // create a test wallet with a known private key
+    this.wallet = new Wallet(
+      "0x1234567890123456789012345678901234567890123456789012345678901234"
+    );
+  }
+
+  private getNonce(channelId: string): string {
+    const currentNonce = this.nonceMap.get(channelId) || 0;
+    this.nonceMap.set(channelId, currentNonce + 1);
+    return currentNonce.toString();
+  }
+
   /**
    * signs a request with channel details
    */
@@ -19,29 +39,27 @@ export class PaymentChannelSDK {
       const message = {
         channelId,
         amount: request.amount,
-        nonce: hexlify(randomBytes(32)),
+        nonce: this.getNonce(channelId), 
         requestData: hexlify(bodyBytes),
         timestamp: Date.now(),
       };
 
+      console.log("\nMessage to be signed:", message);
+
       const abiCoder = AbiCoder.defaultAbiCoder();
-      const messageHash = keccak256(
-        abiCoder.encode(
-          ["string", "string", "string", "bytes", "uint256"],
-          [
-            message.channelId,
-            message.amount,
-            message.nonce,
-            bodyBytes,
-            message.timestamp,
-          ]
-        )
+      const encodedMessage = abiCoder.encode(
+        ["string", "string", "string", "bytes", "uint256"],
+        [
+          message.channelId,
+          message.amount,
+          message.nonce,
+          bodyBytes,
+          message.timestamp,
+        ]
       );
 
-      // testing signature
-      const signature = "0xmocksignature";
-
-      // const signature = await this.signer.signMessage(toBeArray(messageHash));
+      const messageHash = keccak256(encodedMessage);
+      const signature = await this.wallet.signMessage(toBeArray(messageHash));
 
       return {
         message,
@@ -72,7 +90,6 @@ export class PaymentChannelSDK {
             rawBody
           );
 
-          // add required headers
           config.headers = {
             ...config.headers,
             "x-signature": signedRequest.signature,
@@ -80,11 +97,51 @@ export class PaymentChannelSDK {
             "x-timestamp": signedRequest.timestamp,
           };
 
-          console.log("Modified headers:", config.headers);
+          console.log("Request Headers:", config.headers);
           return config;
         } catch (err) {
           const error = err as Error;
           throw new Error(`Failed to process request: ${error.message}`);
+        }
+      },
+    };
+  }
+
+  createResponseInterceptor() {
+    return {
+      response: (response: any) => {
+        try {
+          // get payment channel details from x-payment header
+          const paymentChannelStr = response.headers["x-payment"];
+          if (!paymentChannelStr) {
+            console.log("No payment channel data in response");
+            return response;
+          }
+
+          const paymentChannel: PaymentChannelResponse =
+            JSON.parse(paymentChannelStr);
+
+          // extract channelId from the original request
+          const requestMessage = JSON.parse(
+            response.config.headers["x-message"]
+          );
+          const channelId = requestMessage.channelId;
+
+          // update nonce map with the next nonce (current nonce + 1)
+          const nextNonce = BigInt(paymentChannel.nonce) + 1n;
+          this.nonceMap.set(channelId, Number(nextNonce));
+
+          console.log("\nPayment Channel Update:");
+          console.log("Channel ID:", channelId);
+          console.log("Current Nonce:", paymentChannel.nonce);
+          console.log("Next Nonce:", nextNonce.toString());
+          console.log("Balance:", paymentChannel.balance);
+          console.log("Expiration:", paymentChannel.expiration);
+
+          return response;
+        } catch (err) {
+          const error = err as Error;
+          throw new Error(`Failed to process response: ${error.message}`);
         }
       },
     };
