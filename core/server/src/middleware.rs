@@ -101,11 +101,25 @@ pub async fn auth_middleware(
         payment_amount,
     };
 
-    // validate the headers against the payment channel state and return the response
+    // Validate the headers against the payment channel state and return the response
     match verify_and_update_channel(&state, &signed_request).await {
-        Ok(_) => {
+        Ok(payment_channel) => {
             let request = Request::from_parts(parts, Body::from(body_bytes));
-            Ok(next.run(request).await)
+
+            // Modify the response headers to include the payment channel data
+            let mut response = next.run(request).await;
+            let headers_mut = response.headers_mut();
+            // convert the payment channel json into string and then return that in the header
+            headers_mut.insert(
+                "X-Payment",
+                serde_json::to_string(&payment_channel)
+                    .unwrap()
+                    .parse()
+                    .unwrap(),
+            );
+            headers_mut.insert("X-Timestamp", now.to_string().parse().unwrap());
+
+            Ok(response)
         }
         Err(e) => Err(StatusCode::from(e)),
     }
@@ -114,15 +128,10 @@ pub async fn auth_middleware(
 async fn verify_and_update_channel(
     state: &ChannelState,
     request: &SignedRequest,
-) -> Result<(), AuthError> {
+) -> Result<PaymentChannel, AuthError> {
     println!("\n=== verify_and_update_channel ===");
     println!("Payment amount: {}", request.payment_amount);
     println!("Channel balance: {}", request.payment_channel.balance);
-
-    // Validate channel balance using network-specific logic
-    state
-        .validate_channel(request.payment_channel.channel_id, &request.payment_channel)
-        .await?;
 
     println!("Message length: {}", request.message.len());
     println!("Original message: 0x{}", hex::encode(&request.message));
@@ -158,6 +167,13 @@ async fn verify_and_update_channel(
             return Err(AuthError::InvalidChannel);
         }
     } else {
+        // TODO: Implement the check here
+
+        // Validate channel balance using network-specific logic
+        state
+            .validate_channel(request.payment_channel.channel_id, &request.payment_channel)
+            .await?;
+
         // Handle the case where the channel does not exist
         // Ensure the nonce is 0
         // Verify that the channel contract data is correct
@@ -166,11 +182,13 @@ async fn verify_and_update_channel(
         // 3. Verify the channel ID is correct
     }
 
+    // TODO: Update balance or amount whichever we need to do here
+
     // Update or insert the channel
     channels.insert(
         request.payment_channel.channel_id,
         request.payment_channel.clone(),
     );
 
-    Ok(())
+    Ok(request.payment_channel.clone())
 }

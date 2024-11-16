@@ -9,7 +9,7 @@ pub async fn main() {
 
     // add middleware we created for protecting routes
     // Create a new instance of our state
-    let rpc_url = "https://eth.merkle.io".parse().unwrap();
+    let rpc_url = "https://1rpc.io/sepolia".parse().unwrap();
     let provider = ProviderBuilder::new().on_http(rpc_url);
 
     // NOTE: Re check on this to work around payment amount

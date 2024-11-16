@@ -57,11 +57,13 @@ impl ChannelState {
 
     // No need in theory for validating this at the start, can do but it will add latency for a contract call on each and every API, not good
     // Can do this the first time the channel is added to the local state
+    // TODO: Implement this method
     pub async fn validate_channel(
         &self,
         channel_id: U256,
         payment_channel: &PaymentChannel,
     ) -> Result<(), AuthError> {
+        ///
         // self.network.validate_channel(channel_id, balance).await
 
         // Fetch the balance for this payment channel from the contract implementation on the blockchain
@@ -74,7 +76,6 @@ impl ChannelState {
         // Fetch Expiration time for the channel from the contract
 
         // Verify other data from the contract as well for the payment channel
-
         Ok(())
     }
 
