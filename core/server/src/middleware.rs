@@ -88,8 +88,8 @@ pub async fn auth_middleware(
     })?;
 
     // Parse payment channel data
-    let mut payment_channel: PaymentChannel = serde_json::from_str(payment_data).map_err(|_| {
-        println!("Failed: Payment data decode");
+    let mut payment_channel: PaymentChannel = serde_json::from_str(payment_data).map_err(|e| {
+        println!("Failed: Payment data decode - Error {}", e);
         StatusCode::BAD_REQUEST
     })?;
 
@@ -111,12 +111,19 @@ pub async fn auth_middleware(
         &body_bytes,
     );
 
+    println!(
+        "Reconstructed message: 0x{}",
+        hex::encode(&reconstructed_message)
+    );
+
     // Update Balance for updating the local state
     payment_channel.balance -= payment_amount;
 
     if message != reconstructed_message {
         println!("Failed: Message mismatch");
         return Err(StatusCode::BAD_REQUEST);
+    } else {
+        println!("Message match");
     }
 
     let signed_request = SignedRequest {

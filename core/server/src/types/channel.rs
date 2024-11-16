@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct PaymentChannel {
-    pub channel_address: Address,
+    pub address: Address,
     pub sender: Address,
     pub recipient: Address,
     pub balance: U256,

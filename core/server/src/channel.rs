@@ -114,7 +114,7 @@ impl ChannelState {
 
         let payment_channel_contract: ContractInstance<Http<Client>, _, Ethereum> =
             ContractInstance::new(
-                payment_channel.channel_address,
+                payment_channel.address,
                 provider.clone(),
                 Interface::new(abi),
             );

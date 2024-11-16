@@ -6,6 +6,7 @@ import {
   Contract,
   BrowserProvider,
   parseEther,
+  ethers,
 } from "ethers";
 import { AbiCoder } from "ethers";
 import type {
@@ -18,9 +19,12 @@ import type { Provider } from "ethers";
 import type { Signer } from "ethers";
 import { channelFactoryABI } from "./abi/channel-factory";
 import "dotenv/config";
-import { concat, toBytes, toHex } from "viem";
+import { concat, encodeAbiParameters, pad, toBytes, toHex } from "viem";
 import { formatAxiosError } from "./utils";
-import axios from "axios";
+import axios, {
+  type AxiosInstance,
+  type InternalAxiosRequestConfig,
+} from "axios";
 
 interface SDKConfig {
   privateKey: string;
@@ -138,42 +142,37 @@ export class PaymentChannelSDK {
    * signs a request with channel details
    */
   async signRequest(
-    request: RequestConfig,
-    channelId: string,
+    paymentChannel: PaymentChannelResponse,
     rawBody: any
   ): Promise<SignedRequest> {
     try {
-      const bodyBytes = new TextEncoder().encode(
-        typeof rawBody === "string" ? rawBody : JSON.stringify(rawBody)
-      );
+      // rawBody is supposed to be a Bytes array
+      // If undefined, set to empty buffer
+      const bodyBytes = rawBody ? toBytes(rawBody) : new Uint8Array(0);
 
       const message = {
-        channelId,
-        amount: request.amount,
-        nonce: this.getNonce(channelId),
-        requestData: hexlify(bodyBytes),
+        channelId: paymentChannel.channel_id,
+        balance: paymentChannel.balance,
+        nonce: this.getNonce(paymentChannel.channel_id),
+        requestData: bodyBytes,
         timestamp: Math.floor(Date.now() / 1000),
       };
 
       console.log("\nMessage to be signed:", message);
 
-      const abiCoder = AbiCoder.defaultAbiCoder();
-      const encodedMessage = abiCoder.encode(
-        ["string", "string", "string", "bytes", "uint256"],
-        [
-          message.channelId,
-          message.amount,
-          message.nonce,
-          bodyBytes,
-          message.timestamp,
-        ]
-      );
+      const encodedMessage = concat([
+        toHex(message.channelId, { size: 32 }),
+        toHex(message.balance, { size: 32 }),
+        toHex(message.nonce, { size: 32 }),
+        toHex(message.requestData),
+      ]);
 
-      const messageHash = keccak256(encodedMessage);
-      const signature = await this.wallet.signMessage(toBeArray(messageHash));
+      console.log("Encoded message:", encodedMessage);
+
+      const signature = await this.wallet.signMessage(encodedMessage);
 
       return {
-        message,
+        message: encodedMessage,
         signature,
         timestamp: message.timestamp.toString(), // Already in seconds
       };
@@ -193,7 +192,7 @@ export class PaymentChannelSDK {
    */
   createRequestInterceptor(channelId: string) {
     return {
-      request: async (config: any) => {
+      request: async (config: InternalAxiosRequestConfig) => {
         try {
           // Get channel state
           const channelState = this.channelStates.get(channelId);
@@ -201,32 +200,27 @@ export class PaymentChannelSDK {
             throw new Error(`No payment channel found for ID: ${channelId}`);
           }
 
-          const rawBody = config.data;
+          const rawBody = config.data; // Request body
+          console.log("\nRequest Body:", rawBody);
 
-          const signedRequest = await this.signRequest(
-            {
-              amount: "0",
-              data: config.data || {},
-            },
-            channelId,
-            rawBody
-          );
+          const signedRequest = await this.signRequest(channelState, rawBody);
 
           // convert message and signature to bytes
-          const messageBytes = toBytes(JSON.stringify(signedRequest.message));
-          const signatureBytes = toHex(signedRequest.signature);
+          // const messageBytes = toBytes(JSON.stringify(signedRequest.message));
+          // const signatureBytes = toHex(signedRequest.signature);
 
-          // concat message and signature bytes
-          const concatenatedBytes = concat([messageBytes, signatureBytes]);
+          // // concat message and signature bytes
+          // const concatenatedBytes = concat([messageBytes, signatureBytes]);
 
-          // convert to hex
-          const encodedData = toHex(concatenatedBytes);
+          // // convert to hex
+          // const encodedData = toHex(concatenatedBytes);
 
-          console.log("kushagra payment-data", JSON.stringify(channelState));
+          console.log("Payment-data", JSON.stringify(channelState));
 
+          // @ts-ignore
           config.headers = {
             ...config.headers,
-            "x-Message": encodedData,
+            "x-Message": signedRequest.message,
             "x-Timestamp": signedRequest.timestamp,
             "x-Payment": JSON.stringify(channelState),
             "x-Signature": signedRequest.signature,

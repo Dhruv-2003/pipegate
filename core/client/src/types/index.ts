@@ -1,4 +1,5 @@
 export interface PaymentChannelResponse {
+  address: string;
   sender: string;
   recipient: string;
   balance: string;
@@ -13,13 +14,7 @@ export interface RequestConfig {
 }
 
 export interface SignedRequest {
-  message: {
-    channelId: string;
-    amount: string;
-    nonce: string;
-    requestData: string;
-    timestamp: number;
-  };
+  message: `0x${string}`;
   signature: string;
   timestamp: string;
 }
