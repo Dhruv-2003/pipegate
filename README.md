@@ -30,6 +30,10 @@ PipeGate is a decentralized API monetization protocol that changes how APIs hand
 - Complex API key management
 - Separate payment and access control systems
 
+## Demo
+
+- [Youtube Video](https://youtu.be/8KZ1sLNRUwY)
+
 ## How it's made
 
 PipeGate is built using a stack of modern Web3 technologies and standard web protocols:
