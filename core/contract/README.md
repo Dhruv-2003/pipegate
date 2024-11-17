@@ -1,95 +1,170 @@
-## Foundry
+# PipeGate Smart Contracts
 
-**Foundry is a blazing fast, portable and modular toolkit for Ethereum application development written in Rust.**
+Payment channel smart contracts for the PipeGate protocol - The Web3 Stripe for APIs.
 
-Foundry consists of:
+## Deployed Contracts
 
-- **Forge**: Ethereum testing framework (like Truffle, Hardhat and DappTools).
-- **Cast**: Swiss army knife for interacting with EVM smart contracts, sending transactions and getting chain data.
-- **Anvil**: Local Ethereum node, akin to Ganache, Hardhat Network.
-- **Chisel**: Fast, utilitarian, and verbose solidity REPL.
+**Base Sepolia Testnet**
+- Channel Factory: `0xf2Cabfa8B29bFB86956D1960fF748f27836E1E14`
+- USDC Token: `0x036CbD53842c5426634e7929541eC2318f3dCF7e`
 
-## NOTE - Contract Addresses
+## Development Setup
 
-ChannelFactory
-
-Base Sepolia - 0xf2Cabfa8B29bFB86956D1960fF748f27836E1E14
-
-## Documentation
-
-https://book.getfoundry.sh/
-
-## Methods
-
-### Registering as an API provider
-
-cast send 0xf2Cabfa8B29bFB86956D1960fF748f27836E1E14 "register(uint price)" 1000 --rpc-url https://base-sepolia-rpc.publicnode.com --private-key PRIVATE_KEY
-
-### Approving stablecoin to the Channel Factory
-
-USDC : Base Sepolia - 0x036CbD53842c5426634e7929541eC2318f3dCF7e
-EURC : Base Sepolia -
-
-cast send 0x036CbD53842c5426634e7929541eC2318f3dCF7e "approve(address spender, uint256 value)" 0xf2Cabfa8B29bFB86956D1960fF748f27836E1E14 1000000 --rpc-url https://base-sepolia-rpc.publicnode.com --private-key PRIVATE_KEY
-
-### Creating a payment channel
-
-cast send 0xf2Cabfa8B29bFB86956D1960fF748f27836E1E14 "createChannel(address recipient, uint256 \_duration,address \_tokenAddress, uint256 \_amount)" 0x62C43323447899acb61C18181e34168903E033Bf 2592000 0x036CbD53842c5426634e7929541eC2318f3dCF7e 1000000 --rpc-url https://base-sepolia-rpc.publicnode.com --private-key PRIVATE_KEY
-
-### Fetching balance for a payment channel
-
-cast call 0x4cF93D3b7cD9D50ecfbA2082D92534E578Fe46F6 "getBalance()" --rpc-url https://base-sepolia-rpc.publicnode.com
-
-## Usage
-
-### Build
-
-```shell
-$ forge build
+1. Install Foundry:
+```bash
+curl -L https://foundry.paradigm.xyz | bash
+foundryup
 ```
 
-### Test
-
-```shell
-$ forge test
+2. Clone the repository:
+```bash
+git clone https://github.com/yourusername/pipegate-contracts
+cd pipegate-contracts
 ```
 
-### Format
-
-```shell
-$ forge fmt
+3. Install dependencies:
+```bash
+forge install
 ```
 
-### Gas Snapshots
-
-```shell
-$ forge snapshot
+4. Build contracts:
+```bash
+forge build
 ```
 
-### Anvil
+## Test
 
-```shell
-$ anvil
+Run the test suite:
+```bash
+forge test
 ```
 
-### Deploy
-
-```shell
-$ forge script script/Counter.s.sol:CounterScript --rpc-url <your_rpc_url> --private-key <your_private_key>
+Run tests with gas reporting:
+```bash
+forge test --gas-report
 ```
 
-### Cast
+## Contract Interaction Guide
 
-```shell
-$ cast <subcommand>
+### For API Providers
+
+1. **Register as an API Provider**
+```bash
+# Register with a price of 1000 wei per request
+cast send $FACTORY_ADDRESS "register(uint256)" 1000 \
+    --rpc-url $RPC_URL \
+    --private-key $PRIVATE_KEY
 ```
 
-### Help
+### For API Consumers
 
-```shell
-$ forge --help
-$ anvil --help
-$ cast --help
+1. **Approve USDC for Channel Factory**
+```bash
+# Approve 1,000,000 USDC units
+cast send $USDC_ADDRESS "approve(address,uint256)" \
+    $FACTORY_ADDRESS 1000000 \
+    --rpc-url $RPC_URL \
+    --private-key $PRIVATE_KEY
 ```
 
-s
+2. **Create Payment Channel**
+```bash
+# Parameters:
+# - recipient: API provider address
+# - duration: 30 days in seconds (2592000)
+# - tokenAddress: USDC contract address
+# - amount: Amount to deposit (e.g., 1000000)
+cast send $FACTORY_ADDRESS "createChannel(address,uint256,address,uint256)" \
+    $RECIPIENT_ADDRESS 2592000 $USDC_ADDRESS 1000000 \
+    --rpc-url $RPC_URL \
+    --private-key $PRIVATE_KEY
+```
+
+3. **Check Channel Balance**
+```bash
+# Replace CHANNEL_ADDRESS with your payment channel address
+cast call $CHANNEL_ADDRESS "getBalance()" \
+    --rpc-url $RPC_URL
+```
+
+## Environment Setup
+
+Create a `.env` file:
+```env
+PRIVATE_KEY=your_private_key
+RPC_URL=https://base-sepolia-rpc.publicnode.com
+FACTORY_ADDRESS=0xf2Cabfa8B29bFB86956D1960fF748f27836E1E14
+USDC_ADDRESS=0x036CbD53842c5426634e7929541eC2318f3dCF7e
+```
+
+Load environment variables:
+```bash
+source .env
+```
+
+## Deployment
+
+Deploy to testnet:
+```bash
+forge script script/DeployChannelFactory.s.sol:Deploy \
+    --rpc-url $RPC_URL \
+    --private-key $PRIVATE_KEY \
+    --broadcast
+```
+
+## Contract Architecture
+
+### ChannelFactory
+- Manages API provider registration
+- Creates new payment channels
+- Handles initial token deposits
+
+Key features:
+- Provider price registration
+- Channel creation and deployment
+- Token approval and transfer handling
+
+### PaymentChannel
+- Handles individual payment channels
+- Manages channel state and balances
+- Processes payment claims
+
+## Security Considerations
+
+1. Never share or commit private keys
+2. Always verify token approvals
+3. Check channel durations and amounts
+4. Verify API provider addresses
+
+## Development Commands
+
+```bash
+# Format code
+forge fmt
+
+# Run gas snapshots
+forge snapshot
+
+# Local node
+anvil
+
+# Contract verification
+forge verify-contract $CONTRACT_ADDRESS ChannelFactory \
+    --chain-id 84532 \
+    --watch
+```
+
+## Support
+
+For technical support:
+- Create an issue in the GitHub repository
+- Join our Discord community
+- Check the documentation
+
+## License
+
+UNLICENSED
+
+---
+
+**Note**: This is a testnet deployment. For production use, additional security reviews and audits are recommended.
