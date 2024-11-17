@@ -147,11 +147,19 @@ export class PaymentChannelSDK {
         { size: 32 }
       ) as `0x${string}`;
 
+      console.log("Raw body", rawBody);
+
       // Convert raw body to proper format
       // Use the actual request body instead of headers
-      const bodyBytes = toBytes(
-        typeof rawBody === "string" ? rawBody : JSON.stringify(rawBody)
-      );
+      // Empty uint8 array if no body is present
+      const bodyBytes =
+        rawBody == undefined
+          ? new Uint8Array(0)
+          : toBytes(
+              typeof rawBody === "string" ? rawBody : JSON.stringify(rawBody)
+            );
+
+      console.log("Body Bytes:", bodyBytes);
 
       // Concatenate all parts
       const encodedMessage = concat([

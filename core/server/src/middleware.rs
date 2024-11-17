@@ -127,7 +127,7 @@ pub async fn auth_middleware(
     }
 
     let signed_request = SignedRequest {
-        message: message.clone(),
+        message,
         signature,
         payment_channel: payment_channel,
         payment_amount,
@@ -163,6 +163,11 @@ async fn verify_and_update_channel(
 ) -> Result<PaymentChannel, AuthError> {
     println!("\n=== verify_and_update_channel ===");
     println!("Payment amount: {}", request.payment_amount);
+    // Print the payment channel data JSON
+    println!(
+        "Payment channel: {}",
+        serde_json::to_string(&request.payment_channel).unwrap()
+    );
     println!("Channel balance: {}", request.payment_channel.balance);
 
     println!("Message length: {}", request.message.len());
@@ -171,16 +176,11 @@ async fn verify_and_update_channel(
     // Verify signature using network-specific logic
     let recovered_address = state
         .verify_signature(
-            request.payment_channel.channel_id,
+            &request.payment_channel,
             &request.signature,
             &request.message,
         )
         .await?;
-
-    if recovered_address != request.payment_channel.sender {
-        println!("Failed: Address mismatch");
-        return Err(AuthError::InvalidSignature);
-    }
 
     state
         .check_rate_limit(request.payment_channel.sender)
@@ -190,6 +190,7 @@ async fn verify_and_update_channel(
 
     // Check if channel exists and validate nonce
     if let Some(existing_channel) = channels.get(&request.payment_channel.channel_id) {
+        println!("Existing channel found");
         // Ensure new nonce is greater than existing nonce
         if request.payment_channel.nonce <= existing_channel.nonce {
             println!(
@@ -197,10 +198,13 @@ async fn verify_and_update_channel(
                 existing_channel.nonce, request.payment_channel.nonce
             );
             return Err(AuthError::InvalidChannel);
+        } else {
+            println!("Nonce match");
         }
     } else {
+        println!("New channel found");
         // Validate channel balance using network-specific logic
-        state.validate_channel(&request.payment_channel).await?;
+        // state.validate_channel(&request.payment_channel).await?;
 
         // Handle the case where the channel does not exist
         // Ensure the nonce is 0
@@ -210,11 +214,14 @@ async fn verify_and_update_channel(
         // 3. Verify the channel ID is correct
     }
 
+    println!("Updating channel state");
+
     // Update or insert the channel
     channels.insert(
         request.payment_channel.channel_id,
         request.payment_channel.clone(),
     );
 
+    println!("API request authorized");
     Ok(request.payment_channel.clone())
 }

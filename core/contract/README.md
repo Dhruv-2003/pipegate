@@ -5,29 +5,34 @@ Payment channel smart contracts for the PipeGate protocol - The Web3 Stripe for 
 ## Deployed Contracts
 
 **Base Sepolia Testnet**
+
 - Channel Factory: `0xf2Cabfa8B29bFB86956D1960fF748f27836E1E14`
 - USDC Token: `0x036CbD53842c5426634e7929541eC2318f3dCF7e`
 
 ## Development Setup
 
 1. Install Foundry:
+
 ```bash
 curl -L https://foundry.paradigm.xyz | bash
 foundryup
 ```
 
 2. Clone the repository:
+
 ```bash
 git clone https://github.com/yourusername/pipegate-contracts
 cd pipegate-contracts
 ```
 
 3. Install dependencies:
+
 ```bash
 forge install
 ```
 
 4. Build contracts:
+
 ```bash
 forge build
 ```
@@ -35,11 +40,13 @@ forge build
 ## Test
 
 Run the test suite:
+
 ```bash
 forge test
 ```
 
 Run tests with gas reporting:
+
 ```bash
 forge test --gas-report
 ```
@@ -49,6 +56,7 @@ forge test --gas-report
 ### For API Providers
 
 1. **Register as an API Provider**
+
 ```bash
 # Register with a price of 1000 wei per request
 cast send $FACTORY_ADDRESS "register(uint256)" 1000 \
@@ -59,6 +67,7 @@ cast send $FACTORY_ADDRESS "register(uint256)" 1000 \
 ### For API Consumers
 
 1. **Approve USDC for Channel Factory**
+
 ```bash
 # Approve 1,000,000 USDC units
 cast send $USDC_ADDRESS "approve(address,uint256)" \
@@ -68,6 +77,7 @@ cast send $USDC_ADDRESS "approve(address,uint256)" \
 ```
 
 2. **Create Payment Channel**
+
 ```bash
 # Parameters:
 # - recipient: API provider address
@@ -81,6 +91,7 @@ cast send $FACTORY_ADDRESS "createChannel(address,uint256,address,uint256)" \
 ```
 
 3. **Check Channel Balance**
+
 ```bash
 # Replace CHANNEL_ADDRESS with your payment channel address
 cast call $CHANNEL_ADDRESS "getBalance()" \
@@ -90,6 +101,7 @@ cast call $CHANNEL_ADDRESS "getBalance()" \
 ## Environment Setup
 
 Create a `.env` file:
+
 ```env
 PRIVATE_KEY=your_private_key
 RPC_URL=https://base-sepolia-rpc.publicnode.com
@@ -98,6 +110,7 @@ USDC_ADDRESS=0x036CbD53842c5426634e7929541eC2318f3dCF7e
 ```
 
 Load environment variables:
+
 ```bash
 source .env
 ```
@@ -105,6 +118,7 @@ source .env
 ## Deployment
 
 Deploy to testnet:
+
 ```bash
 forge script script/DeployChannelFactory.s.sol:Deploy \
     --rpc-url $RPC_URL \
@@ -115,16 +129,19 @@ forge script script/DeployChannelFactory.s.sol:Deploy \
 ## Contract Architecture
 
 ### ChannelFactory
+
 - Manages API provider registration
 - Creates new payment channels
 - Handles initial token deposits
 
 Key features:
+
 - Provider price registration
 - Channel creation and deployment
 - Token approval and transfer handling
 
 ### PaymentChannel
+
 - Handles individual payment channels
 - Manages channel state and balances
 - Processes payment claims
@@ -157,6 +174,7 @@ forge verify-contract $CONTRACT_ADDRESS ChannelFactory \
 ## Support
 
 For technical support:
+
 - Create an issue in the GitHub repository
 - Join our Discord community
 - Check the documentation

@@ -184,3 +184,7 @@ async fn setup_server() {
 ```
 
 **Note**: This middleware is part of the PipeGate protocol. Ensure you're using compatible versions of both client SDK and server middleware.
+
+## Credits & Refrences
+
+- [mahmudsudo/crypto_axum](https://github.com/mahmudsudo/crypto_axum)

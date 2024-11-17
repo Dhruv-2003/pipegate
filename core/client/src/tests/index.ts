@@ -8,12 +8,12 @@ async function testSDKInterceptors() {
     const sdk = new PaymentChannelSDK();
 
     const mockChannelState = {
-      address: "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
-      sender: "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
-      recipient: "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
-      balance: "1000000000000000000",
+      address: "0x4cF93D3b7cD9D50ecfbA2082D92534E578Fe46F6",
+      sender: "0x898d0DBd5850e086E6C09D2c83A26Bb5F1ff8C33",
+      recipient: "0x62C43323447899acb61C18181e34168903E033Bf",
+      balance: "1000000",
       nonce: "0",
-      expiration: Math.floor(Date.now() / 1000 + 86400).toString(),
+      expiration: "1734391330",
       channel_id: "1",
     };
 

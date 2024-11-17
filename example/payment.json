@@ -1,11 +1,12 @@
 {
-  "channel_id": "1",
-  "address": "0x4cF93D3b7cD9D50ecfbA2082D92534E578Fe46F6",
+  "channel_id": "3",
+  "address": "0xf10145a6A66B8A9004faE4C963Ac36940fA7FA31",
   "sender": "0x898d0DBd5850e086E6C09D2c83A26Bb5F1ff8C33",
   "recipient": "0x62C43323447899acb61C18181e34168903E033Bf",
   "duration": "2592000",
   "tokenAddress": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
-  "amount": "1000000",
+  "balance": "1000000",
   "nonce": 0,
-  "price": "1000000000000000"
+  "price": "1000",
+  "expiration": "1734400468"
 }
