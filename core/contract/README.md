@@ -11,7 +11,9 @@ Foundry consists of:
 
 ## NOTE - Contract Addresses
 
-ChannelFactory - 0x16b12b0002487a8FB3B3877a71Ae9258d0889E1B
+ChannelFactory
+
+Base Sepolia - 0xf2Cabfa8B29bFB86956D1960fF748f27836E1E14
 
 ## Documentation
 
@@ -21,7 +23,22 @@ https://book.getfoundry.sh/
 
 ### Registering as an API provider
 
-### Creating a private channel
+cast send 0xf2Cabfa8B29bFB86956D1960fF748f27836E1E14 "register(uint price)" 1000 --rpc-url https://base-sepolia-rpc.publicnode.com --private-key PRIVATE_KEY
+
+### Approving stablecoin to the Channel Factory
+
+USDC : Base Sepolia - 0x036CbD53842c5426634e7929541eC2318f3dCF7e
+EURC : Base Sepolia -
+
+cast send 0x036CbD53842c5426634e7929541eC2318f3dCF7e "approve(address spender, uint256 value)" 0xf2Cabfa8B29bFB86956D1960fF748f27836E1E14 1000000 --rpc-url https://base-sepolia-rpc.publicnode.com --private-key PRIVATE_KEY
+
+### Creating a payment channel
+
+cast send 0xf2Cabfa8B29bFB86956D1960fF748f27836E1E14 "createChannel(address recipient, uint256 \_duration,address \_tokenAddress, uint256 \_amount)" 0x62C43323447899acb61C18181e34168903E033Bf 2592000 0x036CbD53842c5426634e7929541eC2318f3dCF7e 1000000 --rpc-url https://base-sepolia-rpc.publicnode.com --private-key PRIVATE_KEY
+
+### Fetching balance for a payment channel
+
+cast call 0x4cF93D3b7cD9D50ecfbA2082D92534E578Fe46F6 "getBalance()" --rpc-url https://base-sepolia-rpc.publicnode.com
 
 ## Usage
 

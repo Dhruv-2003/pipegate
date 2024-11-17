@@ -7,16 +7,16 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
+use alloy::transports::http::reqwest::Url;
 use alloy::{
     contract::{ContractInstance, Interface},
     network::Ethereum,
-    primitives::{address, Address, U256},
+    primitives::{Address, U256},
     providers::ProviderBuilder,
     signers::Signature,
     sol,
     transports::http::{Client, Http},
 };
-use alloy::{providers::Provider, transports::http::reqwest::Url};
 use tokio::sync::RwLock;
 
 use crate::{error::AuthError, types::PaymentChannel};
@@ -93,7 +93,6 @@ impl ChannelState {
     // TODO: Implement this method
     pub async fn validate_channel(
         &self,
-        channel_id: U256,
         payment_channel: &PaymentChannel,
     ) -> Result<(), AuthError> {
         // self.network.validate_channel(channel_id, balance).await

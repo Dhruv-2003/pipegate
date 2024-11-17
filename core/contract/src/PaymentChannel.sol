@@ -82,12 +82,14 @@ contract PaymentChannel {
         uint256 _price,
         uint256 _channelId
     ) public {
+        require(!isInit, "Channel already initialized");
         sender = _sender;
         recipient = _recipient;
         expiration = block.timestamp + _duration;
 
         token = IERC20(_tokenAddress);
-        token.transferFrom(sender, address(this), _amount);
+        // Transfer the token amount to the contract from the calling contracts
+        token.transferFrom(msg.sender, address(this), _amount);
         balance = _amount;
 
         price = _price;

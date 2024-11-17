@@ -199,12 +199,8 @@ async fn verify_and_update_channel(
             return Err(AuthError::InvalidChannel);
         }
     } else {
-        // TODO: Implement the check here
-
         // Validate channel balance using network-specific logic
-        state
-            .validate_channel(request.payment_channel.channel_id, &request.payment_channel)
-            .await?;
+        state.validate_channel(&request.payment_channel).await?;
 
         // Handle the case where the channel does not exist
         // Ensure the nonce is 0
