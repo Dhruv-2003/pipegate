@@ -3,6 +3,8 @@
 <!-- Pay-per-Call API Monetisation - The Web3 Stripe for APIs -->
 The Web3 Stripe for APIs. Create payment channels, make API calls, payments happen automatically. No API keys, no gas fees per request, just connect wallet and start building.
 
+<img width="952" alt="Screenshot 2024-11-17 at 12 32 48 AM" src="https://github.com/user-attachments/assets/fe1b3926-224d-48e6-8dea-44214e471406">
+
 ## Description
 
 PipeGate is a decentralized API monetization protocol that changes how APIs handle payments and access control. By replacing traditional API keys with payment channels, it enables true pay-per-call pricing without gas fees for each request.
