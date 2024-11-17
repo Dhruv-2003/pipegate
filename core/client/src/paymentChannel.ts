@@ -39,30 +39,15 @@ export class PaymentChannelSDK {
   private provider!: Provider;
   private signer!: Signer;
   private channelFactory!: Contract;
-  // private config: SDKConfig;
 
-  // constructor(config: SDKConfig) {
   constructor() {
-    // todo: note, add your private key here
-    this.wallet = new Wallet(
-      "6d2f70a47ddf455feb6a785b9787265f28897546bd1316224300aed627ef8cfc"
-    );
+    const privateKey = process.env.WALLET_PRIVATE_KEY;
 
-    // if (!config.privateKey) {
-    //   throw new Error("Private key is required");
-    // }
+    if (!privateKey) {
+      throw new Error("WALLET_PRIVATE_KEY environment variable is required");
+    }
 
-    // this.config = config;
-    // // Initialize wallet with provided private key
-    // this.wallet = new Wallet(config.privateKey);
-
-    // if (config.provider) {
-    //   this.provider = config.provider;
-    //   this.signer = this.wallet.connect(this.provider);
-    // } else if (config.signer) {
-    //   this.signer = config.signer;
-    //   this.provider = this.signer.provider!;
-    // }
+    this.wallet = new Wallet(privateKey);
   }
 
   async initialize() {
@@ -252,7 +237,7 @@ export class PaymentChannelSDK {
         if (!paymentChannelStr) {
           return response;
         }
-        
+
         try {
           const paymentChannelStr = response.headers["x-Payment"];
           if (!paymentChannelStr) {
