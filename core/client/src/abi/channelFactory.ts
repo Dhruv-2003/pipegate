@@ -126,4 +126,4 @@ export const channelFactoryABI = [
     ],
     anonymous: false,
   },
-];
+] as const;

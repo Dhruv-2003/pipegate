@@ -1,44 +1,36 @@
-import {
-  keccak256,
-  hexlify,
-  toBeArray,
-  Wallet,
-  Contract,
-  BrowserProvider,
-  parseEther,
-  ethers,
-} from "ethers";
-import { AbiCoder } from "ethers";
 import type {
   CreateChannelParams,
+  CreateChannelResponse,
   PaymentChannelResponse,
   RequestConfig,
   SignedRequest,
 } from "./types";
-import type { Provider } from "ethers";
-import type { Signer } from "ethers";
-import { channelFactoryABI } from "./abi/channel-factory";
+import { channelFactoryABI } from "./abi/channelFactory";
 import "dotenv/config";
-import { concat, encodeAbiParameters, pad, toBytes, toHex } from "viem";
+import {
+  concat,
+  createPublicClient,
+  createWalletClient,
+  decodeEventLog,
+  erc20Abi,
+  http,
+  pad,
+  parseUnits,
+  toBytes,
+  toHex,
+  type Account,
+} from "viem";
 import { formatAxiosError } from "./utils";
-import axios, {
-  type AxiosInstance,
-  type InternalAxiosRequestConfig,
-} from "axios";
+import axios, { type InternalAxiosRequestConfig } from "axios";
+import { privateKeyToAccount } from "viem/accounts";
+import { baseSepolia } from "viem/chains";
+import { ChannelFactoryAddress } from "./constants/address";
 
-interface SDKConfig {
-  privateKey: string;
-  provider?: Provider;
-  signer?: Signer;
-}
-
-export class PaymentChannelSDK {
-  private wallet: Wallet;
+export class ClientInterceptor {
   private nonceMap: Map<string, number> = new Map();
   private channelStates: Map<string, PaymentChannelResponse> = new Map();
-  private provider!: Provider;
-  private signer!: Signer;
-  private channelFactory!: Contract;
+
+  private account!: Account;
 
   constructor() {
     const privateKey = process.env.WALLET_PRIVATE_KEY;
@@ -47,60 +39,89 @@ export class PaymentChannelSDK {
       throw new Error("WALLET_PRIVATE_KEY environment variable is required");
     }
 
-    this.wallet = new Wallet(privateKey);
-  }
-
-  async initialize() {
-    if (!this.signer) {
-      const browserProvider = this.provider as BrowserProvider;
-      this.signer = await browserProvider.getSigner();
-    }
-
-    this.channelFactory = new Contract(
-      "0x16b12b0002487a8FB3B3877a71Ae9258d0889E1B",
-      channelFactoryABI,
-      this.signer
-    );
+    //Intialisaing Account with viem
+    this.account = privateKeyToAccount(privateKey as `0x${string}`);
+    console.log("Account connected with address", this.account.address);
   }
 
   /**
-   * creates a new payment channel with specified parameters
+   * Create a new payment channel
+   * @param params CreateChannelParams - recipient, duration, tokenAddress, amount
+   * @returns CreateChannelResponse - channelId, channelAddress, sender, recipient, duration, tokenAddress, amount, price, timestamp
    */
-  async createPaymentChannel(params: CreateChannelParams): Promise<string> {
+  async createPaymentChannel(
+    params: CreateChannelParams
+  ): Promise<CreateChannelResponse> {
     try {
       console.log("Creating payment channel with params:", params);
 
-      const tx = await this.channelFactory.createChannel(
-        params.recipient,
-        params.duration,
-        params.tokenAddress,
-        parseEther(params.amount)
-      );
+      const publicClient = createPublicClient({
+        chain: baseSepolia,
+        transport: http(),
+      });
 
-      console.log("Transaction sent:", tx.hash);
-      const receipt = await tx.wait();
+      const walletClient = createWalletClient({
+        chain: baseSepolia,
+        transport: http(),
+        account: this.account,
+      });
+
+      const tokenDecimals = await publicClient.readContract({
+        address: params.tokenAddress,
+        abi: erc20Abi,
+        functionName: "decimals",
+      });
+
+      const data = await publicClient.simulateContract({
+        address: ChannelFactoryAddress,
+        abi: channelFactoryABI,
+        functionName: "createChannel",
+        args: [
+          params.recipient,
+          BigInt(params.duration),
+          params.tokenAddress,
+          parseUnits(params.amount.toString(), tokenDecimals),
+        ],
+      });
+
+      const txHash = await walletClient.writeContract(data.request);
+
+      console.log("Transaction sent:", txHash);
+
+      const receipt = await publicClient.waitForTransactionReceipt({
+        hash: txHash,
+      });
 
       const event = receipt.logs.find(
-        (log: any) => log.eventName === "channelCreated"
+        (log) =>
+          log.topics[0] ==
+          "0x655f8515373f89502c525d938b13cc7ca710e30ff850db18bec02290fe49a127"
       );
 
       if (!event) {
         throw new Error("Channel creation event not found");
       }
 
-      const channelId = event.args.channelId.toString();
-      const channelAddress = event.args.channelAddress;
-
-      console.log("Channel created:", {
-        channelId,
-        channelAddress,
-        sender: event.args.sender,
-        recipient: event.args.recipient,
-        amount: event.args.amount.toString(),
-        price: event.args.price.toString(),
+      const eventTopics = decodeEventLog({
+        abi: channelFactoryABI,
+        data: event.data,
+        topics: event.topics,
       });
 
-      return channelId;
+      if (eventTopics.eventName != "channelCreated") {
+        throw new Error("Channel ID not found in event logs");
+      }
+
+      console.log("Channel created:", {
+        channelId: eventTopics.args.channelId,
+        channelAddress: eventTopics.args.channelAddress,
+        sender: eventTopics.args.sender,
+        recipient: eventTopics.args.recipient,
+        amount: eventTopics.args.amount.toString(),
+        price: eventTopics.args.price.toString(),
+      });
+
+      return eventTopics.args;
     } catch (err) {
       if (axios.isAxiosError(err)) {
         console.error(formatAxiosError(err));
@@ -112,7 +133,20 @@ export class PaymentChannelSDK {
     }
   }
 
-  // get current channel state
+  /**
+   *
+   * @param channelId  channel id
+   * @param channelState channel state
+   */
+  addNewChannel(channelId: string, channelState: PaymentChannelResponse) {
+    this.channelStates.set(channelId, channelState);
+  }
+
+  /**
+   * gets the state of a payment channel
+   * @param channelId
+   * @returns
+   */
   getChannelState(channelId: string): PaymentChannelResponse | undefined {
     return this.channelStates.get(channelId);
   }
@@ -125,8 +159,11 @@ export class PaymentChannelSDK {
 
   /**
    * signs a request with channel details
+   * @param paymentChannel PaymentChannelResponse
+   * @param rawBody Body of the request
+   * @returns SignedRequest
    */
-  async signRequest(
+  private async signRequest(
     paymentChannel: PaymentChannelResponse,
     rawBody: any
   ): Promise<SignedRequest> {
@@ -176,9 +213,12 @@ export class PaymentChannelSDK {
       console.log("Body (hex):", toHex(bodyBytes));
       console.log("Final Message:", encodedMessage);
 
-      const signature = await this.wallet.signMessage(
-        toBeArray(encodedMessage)
-      );
+      // @ts-ignore
+      const signature = await this.account?.signMessage({
+        message: { raw: encodedMessage },
+      });
+
+      console.log("Signature:", signature);
 
       return {
         message: encodedMessage,
@@ -193,6 +233,7 @@ export class PaymentChannelSDK {
 
   /**
    * creates an interceptor for HTTP clients (axios, fetch)
+   * @param channelId
    */
   createRequestInterceptor(channelId: string) {
     return {
@@ -241,14 +282,11 @@ export class PaymentChannelSDK {
         console.log("Response Data:", response.data);
 
         // Proceed with channel state extraction
-        const paymentChannelStr = response.headers["x-Payment"];
-        if (!paymentChannelStr) {
-          return response;
-        }
-
         try {
-          const paymentChannelStr = response.headers["x-Payment"];
+          const paymentChannelStr =
+            response.headers["x-Payment"] || response.headers["x-payment"];
           if (!paymentChannelStr) {
+            console.error("No payment channel found in response headers");
             return response;
           }
 
@@ -256,11 +294,14 @@ export class PaymentChannelSDK {
             JSON.parse(paymentChannelStr);
           const channelId = paymentChannel.channel_id;
 
+          // Update nonce
+          const nextNonce = Number(paymentChannel.nonce) + 1;
+
+          paymentChannel.nonce = nextNonce.toString();
+
           // Update channel state
           this.channelStates.set(channelId, paymentChannel);
 
-          // Update nonce
-          const nextNonce = BigInt(paymentChannel.nonce) + 1n;
           this.nonceMap.set(channelId, Number(nextNonce));
 
           return response;

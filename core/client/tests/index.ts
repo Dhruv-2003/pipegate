@@ -1,11 +1,11 @@
 import axios from "axios";
-import { PaymentChannelSDK } from "../paymentChannel";
+import { ClientInterceptor } from "../dist/index";
 
 async function testSDKInterceptors() {
   console.log("\nStarting SDK Interceptor Test...");
 
   try {
-    const sdk = new PaymentChannelSDK();
+    const sdk = new ClientInterceptor();
 
     const mockChannelState = {
       address: "0x4cF93D3b7cD9D50ecfbA2082D92534E578Fe46F6",
@@ -18,10 +18,7 @@ async function testSDKInterceptors() {
     };
 
     // Add mock channel state to the SDK
-    (sdk as any).channelStates.set(
-      mockChannelState.channel_id,
-      mockChannelState
-    );
+    sdk.addNewChannel(mockChannelState.channel_id, mockChannelState);
 
     const axiosInstance = axios.create({
       baseURL: "http://localhost:3000",
@@ -70,6 +67,11 @@ async function testSDKInterceptors() {
 
     const finalState = sdk.getChannelState(mockChannelState.channel_id);
     console.log("\nFinal SDK Channel State:", finalState);
+
+    // Make another GET request to the root route for checking if nonce and balance works
+    const response2 = await axiosInstance.get("/", {
+      validateStatus: (status) => true, // Accept any status code
+    });
   } catch (error) {
     if (axios.isAxiosError(error)) {
       console.error("\nRequest Failed:");
