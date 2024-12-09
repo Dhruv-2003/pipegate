@@ -2,7 +2,7 @@
 
 ## Overview
 
-The `@pipegate-sdk/server` middleware provides server-side verification and payment channel management for the PipeGate protocol. This guide covers the setup and configuration for API providers using the Rust implementation.
+The `pipegate` middleware provides server-side verification and payment channel management for the PipeGate protocol. This guide covers the setup and configuration for API providers using the Rust implementation.
 
 ## Installation
 
@@ -10,7 +10,7 @@ Add the following dependencies to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-super-mario-luigi = { version = "0.1.0" }  # PipeGate server middleware
+pipegate = { version = "0.1.0" }  # PipeGate server middleware
 axum = "0.7"                               # Web framework
 tokio = { version = "1.0", features = ["full"] }
 alloy = { version = "0.1", features = ["providers"] }
@@ -23,7 +23,7 @@ alloy = { version = "0.1", features = ["providers"] }
 ```rust
 use alloy::{primitives::U256, providers::ProviderBuilder};
 use axum::{routing::get, Router};
-use super_mario_luigi::{channel::ChannelState, middleware::auth_middleware};
+use pipegate::{channel::ChannelState, middleware::auth_middleware};
 
 #[tokio::main]
 async fn main() {
@@ -31,8 +31,8 @@ async fn main() {
     let rpc_url: alloy::transports::http::reqwest::Url =
         "https://1rpc.io/sepolia".parse().unwrap();
 
-    // Configure payment amount per request
-    let payment_amount = U256::from(1_000_000_000_000_000u128); // 0.001 ETH
+    // Configure payment amount per request ( not in decimals, parsed down )
+    let payment_amount = U256::from(1000); // 0.001 USDC
 
     // Initialize channel state
     let state = ChannelState::new(rpc_url.clone());
@@ -58,7 +58,7 @@ async fn root() -> &'static str {
 ## Error Handling
 
 ```rust
-use super_mario_luigi::errors::PaymentError;
+use pipegate::errors::PaymentError;
 
 async fn handle_request() -> Result<Response, PaymentError> {
     match process_request().await {
@@ -86,7 +86,7 @@ async fn handle_request() -> Result<Response, PaymentError> {
 ```bash
 # .env
 RPC_URL=https://1rpc.io/sepolia
-MIN_PAYMENT_AMOUNT=1000000000000000
+MIN_PAYMENT_AMOUNT=1000
 CHANNEL_FACTORY_ADDRESS=0x...
 ```
 

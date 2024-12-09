@@ -1,6 +1,6 @@
 use alloy::primitives::U256;
 use axum::{routing::get, Router};
-use super_mario_luigi::{channel::ChannelState, middleware::auth_middleware};
+use pipegate::{channel::ChannelState, middleware::auth_middleware};
 
 #[tokio::main]
 pub async fn main() {

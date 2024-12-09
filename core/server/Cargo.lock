@@ -2366,6 +2366,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8b870d8c151b6f2fb93e84a13146138f05d02ed11c7e7c54f8826aaaf7c9f184"
 
 [[package]]
+name = "pipegate"
+version = "0.1.0"
+dependencies = [
+ "alloy",
+ "axum",
+ "serde",
+ "serde_json",
+ "serde_with",
+ "thiserror 2.0.3",
+ "tokio",
+]
+
+[[package]]
 name = "pkcs8"
 version = "0.10.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3096,19 +3109,6 @@ name = "subtle"
 version = "2.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "13c2bddecc57b384dee18652358fb23172facb8a2c51ccc10d74c157bdea3292"
-
-[[package]]
-name = "super-mario-luigi"
-version = "0.1.0"
-dependencies = [
- "alloy",
- "axum",
- "serde",
- "serde_json",
- "serde_with",
- "thiserror 2.0.3",
- "tokio",
-]
 
 [[package]]
 name = "syn"
