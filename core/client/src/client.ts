@@ -163,7 +163,7 @@ export class ClientInterceptor {
    * @param rawBody Body of the request
    * @returns SignedRequest
    */
-  private async signRequest(
+  async signRequest(
     paymentChannel: PaymentChannelResponse,
     rawBody: any
   ): Promise<SignedRequest> {

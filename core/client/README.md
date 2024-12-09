@@ -2,14 +2,16 @@
 
 ## Overview
 
-PipeGate SDK enables developers to interact with the PipeGate protocol for API monetization using payment channels. This guide covers SDK installation, configuration, and usage for both API consumers and providers.
+PipeGate SDK enables developers to interact with the PipeGate protocol for API monetization using payment channels with stablecoins. This guide covers SDK installation, configuration, and usage for both API consumers and providers.
 
 ## Installation
 
 ```bash
-npm install @pipegate-sdk/client
+npm install pipegate-sdk
 # or
-yarn add @pipegate-sdk/client
+yarn add pipegate-sdk
+# or
+bun add pipegate-sdk
 ```
 
 ## Basic Setup
@@ -23,11 +25,10 @@ WALLET_PRIVATE_KEY=your_private_key_here
 2. Initialize the SDK:
 
 ```typescript
-import { PaymentChannelSDK } from "@pipegate-sdk/client";
-import { ethers } from "ethers";
+import { ClientInterceptor } from "pipegate-sdk";
 
 // Create SDK instance
-const pipeGate = new PaymentChannelSDK();
+const pipeGate = new ClientInterceptor();
 await pipeGate.initialize();
 ```
 
@@ -35,17 +36,19 @@ await pipeGate.initialize();
 
 ### Creating a Payment Channel
 
-To start using an API, first create a payment channel:
+To start using an API, first create a payment channel & add it:
 
 ```typescript
 const channelParams = {
   recipient: "0x...", // API provider's address
   duration: 2592000, // Channel duration in seconds (30 days)
   tokenAddress: "0x...", // Payment token address (e.g., USDC)
-  amount: "100", // Amount in tokens to deposit
+  amount: "100", // Amount in tokens to deposit (in decimals ) 100 USDC
 };
 
-const channelId = await pipeGate.createPaymentChannel(channelParams);
+const channel = await pipeGate.createPaymentChannel(channelParams);
+
+await pipeGate.addNewChannel(channel.channelId, channel);
 ```
 
 ### Making API Calls
@@ -80,6 +83,13 @@ const response = await api.get("/endpoint");
 const channelState = pipeGate.getChannelState(channelId);
 console.log("Current Balance:", channelState?.balance);
 console.log("Channel Status:", channelState?.status);
+```
+
+### Adding a new Channel
+
+```typescript
+// Get current channel state
+await pipeGate.addNewChannel(channel.channelId, channel);
 ```
 
 ## Advanced Usage
@@ -131,10 +141,22 @@ const response = await fetch("https://api.example.com/endpoint", {
 
 ```typescript
 interface CreateChannelParams {
-  recipient: string;
+  recipient: `0x${string}`;
   duration: number;
-  tokenAddress: string;
-  amount: string;
+  tokenAddress: `0x${string}`;
+  amount: number;
+}
+
+interface CreateChannelResponse {
+  channelId: bigint;
+  channelAddress: `0x${string}`;
+  sender: `0x${string}`;
+  recipient: `0x${string}`;
+  duration: bigint;
+  tokenAddress: `0x${string}`;
+  amount: bigint;
+  price: bigint;
+  timestamp: bigint;
 }
 
 interface PaymentChannelResponse {
@@ -174,21 +196,23 @@ try {
 ### Complete API Integration Example
 
 ```typescript
-import { PaymentChannelSDK } from "pipegate-sdk";
+import { ClientInterceptor } from "pipegate-sdk";
 import axios from "axios";
 
 async function setupApiClient() {
   // Initialize SDK
-  const pipeGate = new PaymentChannelSDK();
+  const pipeGate = new ClientInterceptor();
   await pipeGate.initialize();
 
   // Create payment channel
-  const channelId = await pipeGate.createPaymentChannel({
+  const channel = await pipeGate.createPaymentChannel({
     recipient: "0x123...",
     duration: 30 * 24 * 60 * 60, // 30 days
     tokenAddress: "0x456...",
     amount: "100",
   });
+
+  await pipeGate.addNewChannel(channel.channelId, channel);
 
   // Setup API client
   const api = axios.create({
@@ -197,7 +221,7 @@ async function setupApiClient() {
 
   // Add interceptors
   api.interceptors.request.use(
-    pipeGate.createRequestInterceptor(channelId).request
+    pipeGate.createRequestInterceptor(channel.channelId).request
   );
   api.interceptors.response.use(pipeGate.createResponseInterceptor().response);
 

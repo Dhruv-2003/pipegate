@@ -1,15 +1,33 @@
 {
   "name": "pipegate-sdk",
+  "version": "0.1.0",
+  "description": "A TypeScript client-side payment authentication SDK for stablecoins used with axios",
   "module": "index.ts",
   "type": "module",
-  "version": "0.1.0",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "watch": "bun --watch ./index.ts",
     "dev": "bun --hot ./src/tests/test.ts",
     "build": "bun build ./src/index.ts --outdir ./dist"
   },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Dhruv-2003/ethbangkok-24"
+  },
+  "keywords": [
+    "typescript",
+    "axios",
+    "interceptor",
+    "stablecoins",
+    "payment-channel",
+    "ethereum"
+  ],
+  "license": "MIT",
+  "homepage": "https://github.com/Dhruv-2003/ethbangkok-24#readme",
   "devDependencies": {
     "@types/bun": "latest",
     "@types/node": "^22.9.0"
