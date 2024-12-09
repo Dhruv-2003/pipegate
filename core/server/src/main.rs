@@ -1,4 +1,4 @@
-use alloy::{primitives::U256, providers::ProviderBuilder};
+use alloy::primitives::U256;
 use axum::{routing::get, Router};
 use super_mario_luigi::{channel::ChannelState, middleware::auth_middleware};
 
@@ -9,10 +9,12 @@ pub async fn main() {
 
     // add middleware we created for protecting routes
     // Create a new instance of our state
-    let rpc_url: alloy::transports::http::reqwest::Url = "https://base-sepolia-rpc.publicnode.com".parse().unwrap();
+    let rpc_url: alloy::transports::http::reqwest::Url =
+        "https://base-sepolia-rpc.publicnode.com".parse().unwrap();
 
-    // NOTE: Re check on this to work around payment amount
-    let payment_amount = U256::from(1_000_000_000_000_000u128); // 0.001 ETH in wei
+    // Amount is not supposed to be in the decimal format, so parsed with the decimals of that token
+    // E.g. if USDC is being used 1USDC = 1000000 after 6 decimal places in case of the USDC token
+    let payment_amount = U256::from(1000); // 0.001 USDC in this case
 
     let state = ChannelState::new(rpc_url.clone());
 
@@ -27,6 +29,8 @@ pub async fn main() {
     // run our server on localhost:3000
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
     axum::serve(listener, app).await.unwrap();
+
+    println!("Listening on: http://localhost:3000");
 }
 
 async fn root() -> &'static str {

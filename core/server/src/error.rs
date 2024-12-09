@@ -1,4 +1,3 @@
-use alloy::rpc::types::error;
 use axum::http::StatusCode;
 use thiserror::Error;
 
