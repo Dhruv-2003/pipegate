@@ -4,6 +4,8 @@
 
 The `pipegate` middleware provides server-side verification and payment channel management for the PipeGate protocol. This guide covers the setup and configuration for API providers using the Rust implementation.
 
+NOTE : Only live on Base sepolia ( rpc: "https://base-sepolia-rpc.publicnode.com" )
+
 ## Installation
 
 Add the following dependencies to your `Cargo.toml`:
@@ -29,7 +31,7 @@ use pipegate::{channel::ChannelState, middleware::auth_middleware};
 async fn main() {
     // Configure RPC endpoint
     let rpc_url: alloy::transports::http::reqwest::Url =
-        "https://1rpc.io/sepolia".parse().unwrap();
+        "https://base-sepolia-rpc.publicnode.com".parse().unwrap();
 
     // Configure payment amount per request ( not in decimals, parsed down )
     let payment_amount = U256::from(1000); // 0.001 USDC
@@ -85,7 +87,7 @@ async fn handle_request() -> Result<Response, PaymentError> {
 
 ```bash
 # .env
-RPC_URL=https://1rpc.io/sepolia
+RPC_URL=https://base-sepolia-rpc.publicnode.com
 MIN_PAYMENT_AMOUNT=1000
 CHANNEL_FACTORY_ADDRESS=0x...
 ```
