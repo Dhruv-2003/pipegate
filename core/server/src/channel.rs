@@ -43,6 +43,11 @@ impl ChannelState {
         }
     }
 
+    pub async fn get_channel(&self, channel_id: U256) -> Option<PaymentChannel> {
+        let channels = self.channels.read().await;
+        channels.get(&channel_id).cloned()
+    }
+
     // verification method
 
     pub async fn verify_signature(

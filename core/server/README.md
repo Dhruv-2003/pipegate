@@ -57,6 +57,48 @@ async fn root() -> &'static str {
 }
 ```
 
+## Closing channel & withdraw
+
+```rust
+use pipegate::errors::PaymentError;
+pub async fn close_and_withdraw(_state: &ChannelState) {
+
+    // Read the payment channel state
+    // let payment_channel = state.get_channel(U256::from(1)).await.unwrap();
+    //or
+    // Define the payment channe
+    let payment_channel = PaymentChannel {
+        address: Address::from_str("0x4cf93d3b7cd9d50ecfba2082d92534e578fe46f6").unwrap(),
+        sender: Address::from_str("0x898d0dbd5850e086e6c09d2c83a26bb5f1ff8c33").unwrap(),
+        recipient: Address::from_str("0x62c43323447899acb61c18181e34168903e033bf").unwrap(),
+        balance: U256::from(1000000),
+        nonce: U256::from(0),
+        expiration: U256::from(1734391330),
+        channel_id: U256::from(1),
+    };
+
+    // Can be temporarily retrieved from the logs the latest one
+    let signature : Signature = Signature::from_str("0x...").unwrap();
+
+    // raw body of the same request
+    let raw_body = Bytes::from("0x");
+
+    let rpc_url: alloy::transports::http::reqwest::Url =
+        "https://base-sepolia-rpc.publicnode.com".parse().unwrap();
+
+    let private_key = env::var("PRIVATE_KEY").expect("PRIVATE_KEY must be set");
+
+    let tx_hash = close_channel(
+        rpc_url,
+        private_key.as_str(),
+        &payment_channel,
+        &signature,
+        raw_body,
+    );
+}
+
+```
+
 ## Error Handling
 
 ```rust

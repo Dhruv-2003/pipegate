@@ -42,8 +42,9 @@ pub async fn main() {
     println!("Listening on: http://localhost:3000");
 }
 
-pub async fn withdraw() {
-    // {"address":"0x4cf93d3b7cd9d50ecfba2082d92534e578fe46f6","sender":"0x898d0dbd5850e086e6c09d2c83a26bb5f1ff8c33","recipient":"0x62c43323447899acb61c18181e34168903e033bf","balance":"1000000","nonce":"0","expiration":"1734391330","channel_id":"1"}
+pub async fn close_and_withdraw(_state: &ChannelState) {
+    // let payment_channel = state.get_channel(U256::from(1)).await.unwrap();
+
     let payment_channel = PaymentChannel {
         address: Address::from_str("0x4cf93d3b7cd9d50ecfba2082d92534e578fe46f6").unwrap(),
         sender: Address::from_str("0x898d0dbd5850e086e6c09d2c83a26bb5f1ff8c33").unwrap(),

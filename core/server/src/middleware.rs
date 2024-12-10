@@ -105,6 +105,7 @@ pub async fn auth_middleware(
             return Err(StatusCode::BAD_REQUEST);
         }
     };
+    println!("Body: {}", String::from_utf8_lossy(&body_bytes));
 
     // Verify that the message matches what we expect
     let reconstructed_message = create_message(
