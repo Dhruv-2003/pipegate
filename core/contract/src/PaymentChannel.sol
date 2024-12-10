@@ -122,13 +122,14 @@ contract PaymentChannel {
     function close(
         uint256 totalAmount, // the amount of credits used
         uint256 nonce,
+        bytes calldata rawBody,
         bytes calldata signature
     ) public {
         require(msg.sender == recipient);
 
         // Verify the signature
         bytes32 messageHash = keccak256(
-            abi.encodePacked(address(this), totalAmount, nonce)
+            abi.encode(channelId, totalAmount, nonce, rawBody)
         );
         bytes32 ethSignedMessageHash = getEthSignedMessageHash(messageHash);
 

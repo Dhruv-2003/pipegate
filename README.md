@@ -1,6 +1,7 @@
 # PipeGate - ETHBangkok 2024
 
 <!-- Pay-per-Call API Monetisation - The Web3 Stripe for APIs -->
+
 The Web3 Stripe for APIs. Create payment channels, make API calls, payments happen automatically. No API keys, no gas fees per request, just connect wallet and start building.
 
 <img width="952" alt="Screenshot 2024-11-17 at 12 32 48 AM" src="https://github.com/user-attachments/assets/fe1b3926-224d-48e6-8dea-44214e471406">
@@ -36,47 +37,54 @@ PipeGate is built using a stack of modern Web3 technologies and standard web pro
 
 **Core Components:**
 
-1. Smart Contracts (Solidity):
+1. [Smart Contracts (Solidity)](https://github.com/Dhruv-2003/ethbangkok-24/tree/development/core/contract):
 
    - Payment Channel Factory for channel creation
    - Channel contracts for handling payments
    - Proxy pattern for upgradability
 
-2. Client SDK (TypeScript):
+2. [Client SDK (TypeScript)](https://github.com/Dhruv-2003/ethbangkok-24/tree/development/core/client):
 
-   - Built with ethers.js for blockchain interactions
-   - Uses viem for efficient byte encoding
+   - Built with viem for blockchain interactions
    - Axios interceptors for seamless request modification
    - State management for channel tracking
 
-3. Server Middleware (Rust):
+3. [Server Middleware (Rust)](https://github.com/Dhruv-2003/ethbangkok-24/tree/development/core/server):
+
    - High-performance signature verification
    - Payment channel state management
    - Request validation and processing
 
-**Technical Innovations:**
+## How to use
 
-1. Request Signing:
+### For API Providers
 
-   - Custom message encoding using ABI encoder
-   - Efficient byte concatenation for headers
-   - Timestamp and nonce management for security
+1. **Register your API:**
 
-2. Payment Channels:
+   - Add your pricing info to ChannelFactory by registering yourselves.
+   - Can directly interact with contract using cast [here](https://github.com/Dhruv-2003/ethbangkok-24/tree/development/core/contract#for-api-providers)
+   - Or using a scripts [here](https://github.com/Dhruv-2003/ethbangkok-24/blob/development/example/scripts/1_registerAsProvider.ts)
 
-   - Off-chain state management
-   - On-chain settlement
-   - Automatic nonce tracking
-   - Real-time balance updates
+2. **Add the server-side middleware:**
 
-3. Middleware Architecture:
-   - Interceptor-based design for easy integration
-   - Automatic header injection
-   - State synchronization between client and server
+   - Add the PipeGate server middleware to your API server
+   - Supported with axum in rust [lib](https://github.com/Dhruv-2003/ethbangkok-24/tree/development/core/server)
 
+### For API Consumers
+
+1. **Create a payment channel:**
+
+   - Use the client-side SDK to create a payment channel with this [script](https://github.com/Dhruv-2003/ethbangkok-24/blob/development/example/scripts/2_createChannel.ts)
+   - Supported with sdk in typescript [lib](https://github.com/Dhruv-2003/ethbangkok-24/tree/development/core/client)
+   - Or directly interact with contract using cast [here](https://github.com/Dhruv-2003/ethbangkok-24/tree/development/core/contract#for-api-consumers)
+
+2. **Make API calls:**
+
+   - Use the client-side SDK to add interceptor to your axios instance with this [sdk](https://github.com/Dhruv-2003/ethbangkok-24/tree/development/core/client)
 
 With this project, we've tried to make the complex payment channel system completely invisible to both API providers and consumers, while maintaining security and efficiency.
 
-## Team 
+## Team
+
 - [Dhruv Agarwal](https://bento.me/0xdhruv) - Server Side SDK & Smart Contract Development
 - [Kushagra Sarathe](https://bento.me/kushagrasarathe) - CLient Side SDK
