@@ -55,6 +55,11 @@ PipeGate is built using a stack of modern Web3 technologies and standard web pro
    - Payment channel state management
    - Request validation and processing
 
+## Publish SDKs & Libraries
+
+- [Rust crate](https://crates.io/crates/pipegate)
+- [TypeScript SDK](https://www.npmjs.com/package/pipegate-sdk)
+
 ## How to use
 
 ### For API Providers
@@ -69,6 +74,11 @@ PipeGate is built using a stack of modern Web3 technologies and standard web pro
 
    - Add the PipeGate server middleware to your API server
    - Supported with axum in rust [lib](https://github.com/Dhruv-2003/ethbangkok-24/tree/development/core/server)
+
+3. **Close the channel & withdraw**
+
+   - Directly interact with contract using cast with the [command](https://github.com/Dhruv-2003/ethbangkok-24/tree/development/core/contract#for-api-providers)
+   - Using the rust library as well [example](https://github.com/Dhruv-2003/ethbangkok-24/tree/development/core/server#closing-channel--withdraw)
 
 ### For API Consumers
 
