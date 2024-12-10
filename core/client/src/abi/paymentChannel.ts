@@ -26,6 +26,7 @@ export const paymentChannelABI = [
     inputs: [
       { name: "totalAmount", type: "uint256", internalType: "uint256" },
       { name: "nonce", type: "uint256", internalType: "uint256" },
+      { name: "rawBody", type: "bytes", internalType: "bytes" },
       { name: "signature", type: "bytes", internalType: "bytes" },
     ],
     outputs: [],

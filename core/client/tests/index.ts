@@ -1,5 +1,5 @@
 import axios from "axios";
-import { ClientInterceptor } from "../dist/index";
+import { ClientInterceptor, CreateChannelResponse } from "../src/index";
 
 async function testSDKInterceptors() {
   console.log("\nStarting SDK Interceptor Test...");
@@ -17,8 +17,20 @@ async function testSDKInterceptors() {
       channel_id: "1",
     };
 
+    const mockCreateChannelResponse: CreateChannelResponse = {
+      channelId: 1n,
+      channelAddress: "0x4cF93D3b7cD9D50ecfbA2082D92534E578Fe46F6",
+      sender: "0x898d0DBd5850e086E6C09D2c83A26Bb5F1ff8C33",
+      recipient: "0x62C43323447899acb61C18181e34168903E033Bf",
+      duration: BigInt(60 * 60 * 24 * 30),
+      tokenAddress: "0x6b175474e89094c44da98b954eedeac495271d0f",
+      amount: BigInt(1000000),
+      price: BigInt(1000),
+      timestamp: BigInt(1731799330),
+    };
+
     // Add mock channel state to the SDK
-    sdk.addNewChannel(mockChannelState.channel_id, mockChannelState);
+    sdk.addNewChannel(mockChannelState.channel_id, mockCreateChannelResponse);
 
     const axiosInstance = axios.create({
       baseURL: "http://localhost:3000",

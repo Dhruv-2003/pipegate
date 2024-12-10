@@ -1,2 +1,2 @@
 export const ChannelFactoryAddress =
-  "0xf2Cabfa8B29bFB86956D1960fF748f27836E1E14";
+  "0x33d081474fe049A7fd0c7e52AaAB4F9198e172EA";

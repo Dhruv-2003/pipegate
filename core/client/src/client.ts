@@ -72,6 +72,20 @@ export class ClientInterceptor {
         functionName: "decimals",
       });
 
+      const approveTxHash = await walletClient.writeContract({
+        abi: erc20Abi,
+        address: params.tokenAddress,
+        functionName: "approve",
+        args: [
+          ChannelFactoryAddress,
+          parseUnits(params.amount.toString(), tokenDecimals),
+        ],
+      });
+
+      await publicClient.waitForTransactionReceipt({
+        hash: approveTxHash,
+      });
+
       const data = await publicClient.simulateContract({
         address: ChannelFactoryAddress,
         abi: channelFactoryABI,
@@ -138,8 +152,16 @@ export class ClientInterceptor {
    * @param channelId  channel id
    * @param channelState channel state
    */
-  addNewChannel(channelId: string, channelState: PaymentChannelResponse) {
-    this.channelStates.set(channelId, channelState);
+  addNewChannel(channelId: string, channelState: CreateChannelResponse) {
+    this.channelStates.set(channelId, {
+      address: channelState.channelAddress,
+      sender: channelState.sender,
+      recipient: channelState.recipient,
+      balance: channelState.amount.toString(),
+      nonce: "0",
+      expiration: (channelState.timestamp + channelState.duration).toString(),
+      channel_id: channelId,
+    });
   }
 
   /**
