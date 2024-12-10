@@ -1,5 +1,5 @@
 import axios from "axios";
-import { ClientInterceptor, CreateChannelResponse } from "../src/index";
+import { ClientInterceptor, CreateChannelResponse } from "../dist/index";
 
 async function testSDKInterceptors() {
   console.log("\nStarting SDK Interceptor Test...");
