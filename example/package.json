@@ -1,1 +1,16 @@
-{ "dependencies": { "ethers": "^6.13.4", "viem": "^2.21.45" } }
+{
+  "dependencies": {
+    "ethers": "^6.13.4",
+    "pipegate-sdk": "../core/client/pipegate-sdk-0.1.0.tgz",
+    "viem": "^2.21.45"
+  },
+  "name": "example",
+  "module": "index.ts",
+  "type": "module",
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5.0.0"
+  }
+}

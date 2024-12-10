@@ -1,5 +1,3 @@
 ## Example usage
 
-Example implementation of the API Auth in a server - client side interaction
-
-- server side code will just use the middleware created and return OK
+This folder contains examples of the code & scripts that can be used to interact with the pipegate - crypto payment authentication specification based on payment channels.
