@@ -9,7 +9,7 @@ repository="https://github.com/Dhruv-2003/ethbangkok-24"
 readme ="README.md"
 keywords = ["blockchain", "payment", "ethereum"]
 categories = ["cryptography", "network-programming", "web-programming"]
-exclude=["src/main.rs"]
+exclude=["src/main.rs","scripts"]
 
 [dependencies]
 alloy = { version = "0.6.4", features = ["full"] }

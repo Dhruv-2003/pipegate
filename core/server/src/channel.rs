@@ -7,13 +7,15 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-use alloy::transports::http::reqwest::Url;
 use alloy::{
-    primitives::{Address, U256},
+    contract::Error,
+    network::EthereumWallet,
+    primitives::{Address, FixedBytes, U256},
     providers::ProviderBuilder,
-    signers::Signature,
+    signers::{local::PrivateKeySigner, Signature},
     sol,
 };
+use alloy::{primitives::Bytes, transports::http::reqwest::Url};
 use tokio::sync::RwLock;
 
 use crate::{error::AuthError, types::PaymentChannel};
@@ -173,4 +175,45 @@ impl ChannelState {
     }
 }
 
-// update method - using the insert method on the HashMap directly
+// Close the channel to withdraw the funds
+pub async fn close_channel(
+    rpc_url: Url,
+    private_key: &str,
+    payment_channel: &PaymentChannel,
+    signature: &Signature,
+    raw_body: Bytes,
+) -> Result<FixedBytes<32>, Error> {
+    let signer: PrivateKeySigner = private_key.parse().expect("Invalid private key");
+    let wallet = EthereumWallet::from(signer);
+
+    let provider = ProviderBuilder::new()
+        .wallet(wallet)
+        .on_http(rpc_url.clone());
+
+    let payment_channel_contract = PaymentChannelContract::new(payment_channel.address, provider);
+
+    let balance_value = payment_channel_contract
+        .getBalance()
+        .call()
+        .await
+        .unwrap()
+        ._0;
+
+    let balance = U256::from(balance_value);
+
+    let total_amount = balance - payment_channel.balance;
+
+    let tx_hash = payment_channel_contract
+        .close(
+            total_amount,
+            payment_channel.nonce,
+            raw_body,
+            Bytes::from(signature.as_bytes()),
+        )
+        .send()
+        .await?
+        .watch()
+        .await?;
+
+    Ok(tx_hash)
+}
