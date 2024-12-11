@@ -21,18 +21,7 @@ export function extractPaymentInfo(log: any): any {
   }
 
   // Construct payment object
-  return {
-    channel_id: event.args.channelId.toString(),
-    address: event.args.channelAddress,
-    sender: event.args.sender,
-    recipient: event.args.recipient,
-    duration: event.args.duration.toString(),
-    tokenAddress: event.args.tokenAddress,
-    balance: event.args.amount.toString(),
-    nonce: 0,
-    price: event.args.price.toString(),
-    expiration: (event.args.timestamp + event.args.duration).toString(),
-  };
+  return event.args;
 }
 
 export function extractPaymentChannelFromResponse(

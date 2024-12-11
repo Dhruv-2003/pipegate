@@ -160,10 +160,13 @@ interface CreateChannelResponse {
 }
 
 interface PaymentChannelResponse {
-  channel_id: string;
+  address: string;
+  sender: string;
+  recipient: string;
   balance: string;
   nonce: string;
-  status: "active" | "closed";
+  expiration: string;
+  channel_id: string;
 }
 
 interface SignedRequest {

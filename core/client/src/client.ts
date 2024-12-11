@@ -12,8 +12,10 @@ import {
   createPublicClient,
   createWalletClient,
   decodeEventLog,
+  encodePacked,
   erc20Abi,
   http,
+  keccak256,
   pad,
   parseUnits,
   toBytes,
@@ -86,7 +88,11 @@ export class ClientInterceptor {
         hash: approveTxHash,
       });
 
+      // wait for 2 seconds after the approve transaction has went through
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+
       const data = await publicClient.simulateContract({
+        account: this.account,
         address: ChannelFactoryAddress,
         abi: channelFactoryABI,
         functionName: "createChannel",
@@ -107,9 +113,7 @@ export class ClientInterceptor {
       });
 
       const event = receipt.logs.find(
-        (log) =>
-          log.topics[0] ==
-          "0x655f8515373f89502c525d938b13cc7ca710e30ff850db18bec02290fe49a127"
+        (log) => log.address == ChannelFactoryAddress
       );
 
       if (!event) {
@@ -190,22 +194,6 @@ export class ClientInterceptor {
     rawBody: any
   ): Promise<SignedRequest> {
     try {
-      // Channel ID (32 bytes)
-      const channelIdPadded = pad(toHex(BigInt(paymentChannel.channel_id)), {
-        size: 32,
-      }) as `0x${string}`;
-
-      // Balance (32 bytes)
-      const balancePadded = pad(toHex(BigInt(paymentChannel.balance)), {
-        size: 32,
-      }) as `0x${string}`;
-
-      // Nonce (32 bytes)
-      const noncePadded = pad(
-        toHex(BigInt(this.getNonce(paymentChannel.channel_id))),
-        { size: 32 }
-      ) as `0x${string}`;
-
       console.log("Raw body", rawBody);
 
       // Convert raw body to proper format
@@ -221,17 +209,22 @@ export class ClientInterceptor {
       console.log("Body Bytes:", bodyBytes);
 
       // Concatenate all parts
-      const encodedMessage = concat([
-        channelIdPadded,
-        balancePadded,
-        noncePadded,
-        toHex(bodyBytes) as `0x${string}`,
-      ]);
+      const encodedMessage = keccak256(
+        encodePacked(
+          ["uint256", "uint256", "uint256", "bytes"],
+          [
+            BigInt(paymentChannel.channel_id),
+            BigInt(paymentChannel.balance),
+            BigInt(this.getNonce(paymentChannel.channel_id)),
+            toHex(bodyBytes) as `0x${string}`,
+          ]
+        )
+      );
 
       console.log("\nMessage Components:");
-      console.log("Channel ID:", channelIdPadded);
-      console.log("Balance:", balancePadded);
-      console.log("Nonce:", noncePadded);
+      console.log("Channel ID:", paymentChannel.channel_id);
+      console.log("Balance:", paymentChannel.balance);
+      console.log("Nonce:", this.getNonce(paymentChannel.channel_id));
       console.log("Body (hex):", toHex(bodyBytes));
       console.log("Final Message:", encodedMessage);
 
@@ -271,6 +264,7 @@ export class ClientInterceptor {
             config.data
           );
 
+          console.log("Adding headers to request:");
           config.headers = new axios.AxiosHeaders({
             ...config.headers,
             "x-Message": signedRequest.message,

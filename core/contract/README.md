@@ -6,7 +6,7 @@ Payment channel smart contracts for the PipeGate protocol - The Web3 Stripe for 
 
 **Base Sepolia Testnet**
 
-- Channel Factory: `0x33d081474fe049A7fd0c7e52AaAB4F9198e172EA`
+- Channel Factory: `0x09443Ec32E54916366927ccDC9D372474324F427`
 - USDC Token: `0x036CbD53842c5426634e7929541eC2318f3dCF7e`
 
 ## Development Setup
@@ -68,7 +68,7 @@ cast send $FACTORY_ADDRESS "register(uint256)" 1000 \
 
 ```bash
 # Close the channel to withdraw 1 USDC with a nonce of 1000, along with the signature received during the API calls
-cast send $FACTORY_ADDRESS "close(uint256 totalAmount,uint256 nonce,bytes calldata rawBody,bytes calldata signature)" 1000000 1000 0x0 $SIGNATURE \
+cast send $FACTORY_ADDRESS "close(uint256 channelBalance,uint256 nonce,bytes calldata rawBody,bytes calldata signature)" 1000 1000 0x0 $SIGNATURE \
     --rpc-url $RPC_URL \
     --private-key $PRIVATE_KEY
 ```
@@ -114,7 +114,7 @@ Create a `.env` file:
 ```env
 PRIVATE_KEY=your_private_key
 RPC_URL=https://base-sepolia-rpc.publicnode.com
-FACTORY_ADDRESS=0x33d081474fe049A7fd0c7e52AaAB4F9198e172EA
+FACTORY_ADDRESS=0x09443Ec32E54916366927ccDC9D372474324F427
 USDC_ADDRESS=0x036CbD53842c5426634e7929541eC2318f3dCF7e
 ```
 

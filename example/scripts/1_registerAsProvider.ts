@@ -4,7 +4,7 @@ import { baseSepolia } from "viem/chains";
 import { channelFactoryAbi, paymentChannelABI } from "../abi/abi";
 import { ChannelFactoryAddress } from "../constants";
 
-const privateKey = process.env.PRIVATE_KEY as `0x${string}`;
+const privateKey = process.env.WALLET_PRIVATE_KEY as `0x${string}`;
 if (!privateKey) {
   throw new Error("Please provide a private key");
 }

@@ -197,20 +197,9 @@ pub async fn close_channel(
 
     let payment_channel_contract = PaymentChannelContract::new(payment_channel.address, provider);
 
-    let balance_value = payment_channel_contract
-        .getBalance()
-        .call()
-        .await
-        .unwrap()
-        ._0;
-
-    let balance = U256::from(balance_value);
-
-    let total_amount = balance - payment_channel.balance;
-
     let tx_hash = payment_channel_contract
         .close(
-            total_amount,
+            payment_channel.balance,
             payment_channel.nonce,
             raw_body,
             Bytes::from(signature.as_bytes()),

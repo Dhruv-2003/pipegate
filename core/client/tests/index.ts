@@ -1,5 +1,5 @@
 import axios from "axios";
-import { ClientInterceptor, CreateChannelResponse } from "../dist/index";
+import { ClientInterceptor, CreateChannelResponse } from "../src/index";
 
 async function testSDKInterceptors() {
   console.log("\nStarting SDK Interceptor Test...");
@@ -7,30 +7,23 @@ async function testSDKInterceptors() {
   try {
     const sdk = new ClientInterceptor();
 
-    const mockChannelState = {
-      address: "0x4cF93D3b7cD9D50ecfbA2082D92534E578Fe46F6",
-      sender: "0x898d0DBd5850e086E6C09D2c83A26Bb5F1ff8C33",
-      recipient: "0x62C43323447899acb61C18181e34168903E033Bf",
-      balance: "1000000",
-      nonce: "0",
-      expiration: "1734391330",
-      channel_id: "1",
-    };
-
     const mockCreateChannelResponse: CreateChannelResponse = {
       channelId: 1n,
-      channelAddress: "0x4cF93D3b7cD9D50ecfbA2082D92534E578Fe46F6",
       sender: "0x898d0DBd5850e086E6C09D2c83A26Bb5F1ff8C33",
       recipient: "0x62C43323447899acb61C18181e34168903E033Bf",
-      duration: BigInt(60 * 60 * 24 * 30),
-      tokenAddress: "0x6b175474e89094c44da98b954eedeac495271d0f",
-      amount: BigInt(1000000),
-      price: BigInt(1000),
-      timestamp: BigInt(1731799330),
+      channelAddress: "0xc51313F4d44B74B8d00b8E2b357C0e754D0539e7",
+      duration: 2592000n,
+      tokenAddress: "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+      amount: 1000000n,
+      price: 1000n,
+      timestamp: 1733912782n,
     };
 
     // Add mock channel state to the SDK
-    sdk.addNewChannel(mockChannelState.channel_id, mockCreateChannelResponse);
+    sdk.addNewChannel(
+      mockCreateChannelResponse.channelId.toString(),
+      mockCreateChannelResponse
+    );
 
     const axiosInstance = axios.create({
       baseURL: "http://localhost:3000",
@@ -43,8 +36,11 @@ async function testSDKInterceptors() {
 
     // Attach interceptors from SDK
     axiosInstance.interceptors.request.use(
-      sdk.createRequestInterceptor(mockChannelState.channel_id).request
+      sdk.createRequestInterceptor(
+        mockCreateChannelResponse.channelId.toString()
+      ).request
     );
+
     axiosInstance.interceptors.response.use(
       sdk.createResponseInterceptor().response
     );
@@ -77,7 +73,9 @@ async function testSDKInterceptors() {
       console.log("New Nonce:", updatedChannel.nonce);
     }
 
-    const finalState = sdk.getChannelState(mockChannelState.channel_id);
+    const finalState = sdk.getChannelState(
+      mockCreateChannelResponse.channelId.toString()
+    );
     console.log("\nFinal SDK Channel State:", finalState);
 
     // Make another GET request to the root route for checking if nonce and balance works
