@@ -54,6 +54,10 @@ PipeGate is built using a stack of modern Web3 technologies and standard web pro
    - High-performance signature verification
    - Payment channel state management
    - Request validation and processing
+  
+## Architecture & Flow
+
+<img width="980" alt="Screenshot 2024-12-11 at 2 41 23 PM" src="https://github.com/user-attachments/assets/31454539-de81-447a-abd2-37dfb4565eba">
 
 ## Publish SDKs & Libraries
 
