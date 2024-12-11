@@ -113,7 +113,8 @@ export class ClientInterceptor {
       });
 
       const event = receipt.logs.find(
-        (log) => log.address == ChannelFactoryAddress
+        (log) =>
+          log.address.toLowerCase() == ChannelFactoryAddress.toLowerCase()
       );
 
       if (!event) {
@@ -130,14 +131,7 @@ export class ClientInterceptor {
         throw new Error("Channel ID not found in event logs");
       }
 
-      console.log("Channel created:", {
-        channelId: eventTopics.args.channelId,
-        channelAddress: eventTopics.args.channelAddress,
-        sender: eventTopics.args.sender,
-        recipient: eventTopics.args.recipient,
-        amount: eventTopics.args.amount.toString(),
-        price: eventTopics.args.price.toString(),
-      });
+      console.log("Channel created:", eventTopics.args);
 
       return eventTopics.args;
     } catch (err) {

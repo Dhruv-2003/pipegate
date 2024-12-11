@@ -24,18 +24,18 @@ async function main() {
   });
 
   const paymentChannel = {
-    address: "0xc51313f4d44b74b8d00b8e2b357c0e754d0539e7",
+    address: "0xc72dfac1a7b3bc178f10dc3bf36c7f64cf41b7de",
     sender: "0x898d0dbd5850e086e6c09d2c83a26bb5f1ff8c33",
     recipient: "0x62c43323447899acb61c18181e34168903e033bf",
     balance: "999000",
     nonce: "1",
-    expiration: "1736504782",
-    channel_id: "1",
+    expiration: "1736528914",
+    channel_id: "2",
   };
 
   const rawBody = "0x";
   const signature =
-    "0x9dbbaab8fb419ad1fc50d2d7d0c037f6621d8fc22701b92c503d80e262081d2a11343599127d064b9ca054cd0ae29c7025394f658b47b4c5c102bfd631d7bcb91b"; // Signature of the sender
+    "0x7158589b32a76eef73c612a0848f6ba66e6a9bf0592414fc5dbd374b185c7114507061d26bcf88f01d68fc7ea18bedb89c564103830b1f7a37e89055a8ebab4d1b"; // Signature of the sender
 
   const txHash = await walletClient.writeContract({
     abi: paymentChannelABI,
