@@ -1,28 +1,41 @@
 {
-  "name": "@super-mario/gateway",
-  "module": "index.ts",
-  "type": "module",
-  "version": "0.1.0",
+  "name": "pipegate-sdk",
+  "version": "0.4.0",
+  "description": "A TypeScript client-side payment authentication SDK for stablecoins used with axios",
   "main": "dist/index.js",
+  "module": "dist/index.js",
   "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
   "scripts": {
-    "watch": "bun --watch ./index.ts",
-    "dev": "bun --hot ./src/tests/test.ts",
-    "build": "bun build ./src/index.ts --outdir ./dist"
+    "watch": "tsc --watch --project tsconfig.json",
+    "dev": "tsc --hot --project tsconfig.json",
+    "build": "tsc --project tsconfig.json"
   },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Dhruv-2003/ethbangkok-24"
+  },
+  "keywords": [
+    "typescript",
+    "axios",
+    "interceptor",
+    "stablecoins",
+    "payment-channel",
+    "ethereum"
+  ],
+  "license": "MIT",
+  "homepage": "https://github.com/Dhruv-2003/ethbangkok-24#readme",
   "devDependencies": {
-    "@types/bun": "latest",
     "@types/node": "^22.9.0"
   },
   "peerDependencies": {
-    "typescript": "^5.6.3"
+    "axios": "^1.7.7",
+    "typescript": "^5.7.2"
   },
   "dependencies": {
-    "@ethersproject/abstract-signer": "^5.7.0",
-    "@ethersproject/providers": "^5.7.2",
-    "axios": "^1.7.7",
     "dotenv": "^16.4.5",
-    "ethers": "^6.13.4",
-    "viem": "^2.21.45"
+    "viem": "^2.21.54"
   }
 }

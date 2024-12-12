@@ -1,26 +1,28 @@
 import axios from "axios";
-import { PaymentChannelSDK } from "../paymentChannel";
+import { ClientInterceptor, CreateChannelResponse } from "../src/index";
 
 async function testSDKInterceptors() {
   console.log("\nStarting SDK Interceptor Test...");
 
   try {
-    const sdk = new PaymentChannelSDK();
+    const sdk = new ClientInterceptor();
 
-    const mockChannelState = {
-      address: "0x4cF93D3b7cD9D50ecfbA2082D92534E578Fe46F6",
+    const mockCreateChannelResponse: CreateChannelResponse = {
+      channelId: 2n,
       sender: "0x898d0DBd5850e086E6C09D2c83A26Bb5F1ff8C33",
       recipient: "0x62C43323447899acb61C18181e34168903E033Bf",
-      balance: "1000000",
-      nonce: "0",
-      expiration: "1734391330",
-      channel_id: "1",
+      channelAddress: "0xC72DfAC1a7B3Bc178F10Dc3bf36c7F64cf41B7DE",
+      duration: 2592000n,
+      tokenAddress: "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+      amount: 1000000n,
+      price: 1000n,
+      timestamp: 1733936914n,
     };
 
     // Add mock channel state to the SDK
-    (sdk as any).channelStates.set(
-      mockChannelState.channel_id,
-      mockChannelState
+    sdk.addNewChannel(
+      mockCreateChannelResponse.channelId.toString(),
+      mockCreateChannelResponse
     );
 
     const axiosInstance = axios.create({
@@ -34,8 +36,11 @@ async function testSDKInterceptors() {
 
     // Attach interceptors from SDK
     axiosInstance.interceptors.request.use(
-      sdk.createRequestInterceptor(mockChannelState.channel_id).request
+      sdk.createRequestInterceptor(
+        mockCreateChannelResponse.channelId.toString()
+      ).request
     );
+
     axiosInstance.interceptors.response.use(
       sdk.createResponseInterceptor().response
     );
@@ -68,8 +73,15 @@ async function testSDKInterceptors() {
       console.log("New Nonce:", updatedChannel.nonce);
     }
 
-    const finalState = sdk.getChannelState(mockChannelState.channel_id);
+    const finalState = sdk.getChannelState(
+      mockCreateChannelResponse.channelId.toString()
+    );
     console.log("\nFinal SDK Channel State:", finalState);
+
+    // Make another GET request to the root route for checking if nonce and balance works
+    const response2 = await axiosInstance.get("/", {
+      validateStatus: (status) => true, // Accept any status code
+    });
   } catch (error) {
     if (axios.isAxiosError(error)) {
       console.error("\nRequest Failed:");

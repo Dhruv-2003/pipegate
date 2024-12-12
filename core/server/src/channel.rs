@@ -3,52 +3,29 @@
 
 use std::{
     collections::HashMap,
-    ops::Add,
     sync::Arc,
     time::{SystemTime, UNIX_EPOCH},
 };
 
-use alloy::transports::http::reqwest::Url;
 use alloy::{
-    contract::{ContractInstance, Interface},
-    network::Ethereum,
-    primitives::{Address, U256},
+    contract::Error,
+    network::EthereumWallet,
+    primitives::{Address, FixedBytes, U256},
     providers::ProviderBuilder,
-    signers::Signature,
+    signers::{local::PrivateKeySigner, Signature},
     sol,
-    transports::http::{Client, Http},
 };
+use alloy::{primitives::Bytes, transports::http::reqwest::Url};
 use tokio::sync::RwLock;
 
 use crate::{error::AuthError, types::PaymentChannel};
 
-// sol!(
-//     #[allow(missing_docs)]
-//     #[sol(rpc)]
-//     ChannelFactory,
-//     "src/abi/ChannelFactory.json"
-// );
-
-// sol!("../contract/src/ChannelFactory.sol",);
-
-// sol!("../contract/src/PaymentChannel.sol");
-
-sol! {
-    contract IERC20 {
-        function transferFrom(
-            address sender,
-            address recipient,
-            uint256 amount
-        ) external returns (bool);
-
-        function transfer(
-            address recipient,
-            uint256 amount
-        ) external returns (bool);
-
-        function balanceOf(address account) external view returns (uint256);
-    }
-}
+sol!(
+    #[allow(missing_docs)]
+    #[sol(rpc)]
+    PaymentChannelContract,
+    "src/abi/PaymentChannel.json"
+);
 
 #[derive(Clone)]
 pub struct ChannelState {
@@ -66,32 +43,37 @@ impl ChannelState {
         }
     }
 
+    pub async fn get_channel(&self, channel_id: U256) -> Option<PaymentChannel> {
+        let channels = self.channels.read().await;
+        channels.get(&channel_id).cloned()
+    }
+
     // verification method
+
     pub async fn verify_signature(
         &self,
         payment_channel: &PaymentChannel,
         signature: &Signature,
         message: &[u8],
-    ) -> Result<Address, AuthError> {
+    ) -> Result<(), AuthError> {
         // self.network.verify_signature(signature, message).await
 
         // Network logic to verify the signature, could be a simple ECDSA verification
+        // TODO: Recheck this logic
         let recovered = signature.recover_address_from_msg(message);
         println!("Recovered address: {:?}", recovered);
 
         // Match the recovered address with the one in the channel state
         match recovered {
-            Ok(address) if address == payment_channel.sender => Ok(address),
+            Ok(address) if address == payment_channel.sender => Ok(()),
             _ => {
-                // Err(AuthError::InvalidSignature);
-                Ok(Address::default())
+                Err(AuthError::InvalidSignature)
+                // NOTE : Ok(Address::default())
             }
         }
     }
 
-    // No need in theory for validating this at the start, can do but it will add latency for a contract call on each and every API, not good
-    // Can do this the first time the channel is added to the local state
-    // TODO: Implement this method
+    // Validating all the information of the channel from the onchain contract for the first time, before the channel is used
     pub async fn validate_channel(
         &self,
         payment_channel: &PaymentChannel,
@@ -99,55 +81,73 @@ impl ChannelState {
         // self.network.validate_channel(channel_id, balance).await
         let provider = ProviderBuilder::new().on_http(self.network_rpc_url.clone());
 
-        // Get the contract ABI.
-        let path = std::env::current_dir()
-            .unwrap()
-            .join("../contract/src/PaymentChannel.sol");
+        let payment_channel_contract =
+            PaymentChannelContract::new(payment_channel.address, provider);
 
-        // Read the artifact which contains `abi`, `bytecode`, `deployedBytecode` and `metadata`.
-        let artifact = std::fs::read(path).expect("Failed to read artifact");
-        let json: serde_json::Value = serde_json::from_slice(&artifact).unwrap();
-
-        // Get `abi` from the artifact.
-        let abi_value = json.get("abi").expect("Failed to get ABI from artifact");
-        let abi = serde_json::from_str(&abi_value.to_string()).unwrap();
-
-        let payment_channel_contract: ContractInstance<Http<Client>, _, Ethereum> =
-            ContractInstance::new(
-                payment_channel.address,
-                provider.clone(),
-                Interface::new(abi),
-            );
-
-        // Fetch the balance for this payment channel from the contract implementation on the blockchain
         let balance_value = payment_channel_contract
-            .function("getBalance", &[])
-            .unwrap()
+            .getBalance()
             .call()
             .await
-            .unwrap();
-        let balance = balance_value.first().unwrap().as_uint().unwrap().0;
+            .unwrap()
+            ._0;
+
+        let balance = U256::from(balance_value);
+
+        println!("Balance: {}", balance);
 
         // If the balance is less than the balance in the local state, return an error
         if payment_channel.balance < balance {
             return Err(AuthError::InsufficientBalance);
         }
 
-        // Fetch Expiration time for the channel from the contract
         let expiration_value = payment_channel_contract
-            .function("expiration", &[])
-            .unwrap()
+            .expiration()
             .call()
             .await
-            .unwrap();
+            .unwrap()
+            ._0;
 
-        let expiration = expiration_value.first().unwrap().as_uint().unwrap().0;
+        let expiration = U256::from(expiration_value);
+
+        println!("Expiration: {}", expiration);
 
         if payment_channel.expiration != expiration {
             return Err(AuthError::Expired);
         }
 
-        // Verify other data from the contract as well for the payment channel
+        // Verify the channelID from the contract
+        let channel_id_value = payment_channel_contract
+            .channelId()
+            .call()
+            .await
+            .unwrap()
+            ._0;
+        let channel_id = U256::from(channel_id_value);
+
+        println!("Channel ID: {}", channel_id);
+
+        if payment_channel.channel_id != channel_id {
+            return Err(AuthError::InvalidChannel);
+        }
+
+        // Verify sender and recipient from the contract
+        let sender_value = payment_channel_contract.sender().call().await.unwrap()._0;
+
+        if payment_channel.sender != sender_value {
+            return Err(AuthError::InvalidChannel);
+        }
+
+        let recipient_value = payment_channel_contract
+            .recipient()
+            .call()
+            .await
+            .unwrap()
+            ._0;
+
+        if payment_channel.recipient != recipient_value {
+            return Err(AuthError::InvalidChannel);
+        }
+
         Ok(())
     }
 
@@ -180,4 +180,34 @@ impl ChannelState {
     }
 }
 
-// update method - using the insert method on the HashMap directly
+// Close the channel to withdraw the funds
+pub async fn close_channel(
+    rpc_url: Url,
+    private_key: &str,
+    payment_channel: &PaymentChannel,
+    signature: &Signature,
+    raw_body: Bytes,
+) -> Result<FixedBytes<32>, Error> {
+    let signer: PrivateKeySigner = private_key.parse().expect("Invalid private key");
+    let wallet = EthereumWallet::from(signer);
+
+    let provider = ProviderBuilder::new()
+        .wallet(wallet)
+        .on_http(rpc_url.clone());
+
+    let payment_channel_contract = PaymentChannelContract::new(payment_channel.address, provider);
+
+    let tx_hash = payment_channel_contract
+        .close(
+            payment_channel.balance,
+            payment_channel.nonce,
+            raw_body,
+            Bytes::from(signature.as_bytes()),
+        )
+        .send()
+        .await?
+        .watch()
+        .await?;
+
+    Ok(tx_hash)
+}

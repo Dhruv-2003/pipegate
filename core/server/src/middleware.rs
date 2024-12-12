@@ -21,6 +21,9 @@ pub async fn auth_middleware(
     request: Request<Body>,
     next: Next,
 ) -> Result<Response, StatusCode> {
+    println!("\n=== auth_middleware ===");
+    println!(" === new request ===");
+
     // parse the request to retrieve the required headers
     // Check timestamp first
     let timestamp = request
@@ -88,7 +91,7 @@ pub async fn auth_middleware(
     })?;
 
     // Parse payment channel data
-    let mut payment_channel: PaymentChannel = serde_json::from_str(payment_data).map_err(|e| {
+    let payment_channel: PaymentChannel = serde_json::from_str(payment_data).map_err(|e| {
         println!("Failed: Payment data decode - Error {}", e);
         StatusCode::BAD_REQUEST
     })?;
@@ -102,6 +105,7 @@ pub async fn auth_middleware(
             return Err(StatusCode::BAD_REQUEST);
         }
     };
+    println!("Body: {}", String::from_utf8_lossy(&body_bytes));
 
     // Verify that the message matches what we expect
     let reconstructed_message = create_message(
@@ -110,14 +114,6 @@ pub async fn auth_middleware(
         payment_channel.nonce,
         &body_bytes,
     );
-
-    println!(
-        "Reconstructed message: 0x{}",
-        hex::encode(&reconstructed_message)
-    );
-
-    // Update Balance for updating the local state
-    payment_channel.balance -= payment_amount;
 
     if message != reconstructed_message {
         println!("Failed: Message mismatch");
@@ -129,18 +125,19 @@ pub async fn auth_middleware(
     let signed_request = SignedRequest {
         message,
         signature,
-        payment_channel: payment_channel,
+        payment_channel,
         payment_amount,
     };
 
     // Validate the headers against the payment channel state and return the response
-    match verify_and_update_channel(&state, &signed_request).await {
+    match verify_and_update_channel(&state, signed_request).await {
         Ok(payment_channel) => {
             let request = Request::from_parts(parts, Body::from(body_bytes));
 
             // Modify the response headers to include the payment channel data
             let mut response = next.run(request).await;
             let headers_mut = response.headers_mut();
+
             // convert the payment channel json into string and then return that in the header
             headers_mut.insert(
                 "X-Payment",
@@ -151,6 +148,8 @@ pub async fn auth_middleware(
             );
             headers_mut.insert("X-Timestamp", now.to_string().parse().unwrap());
 
+            println!(" === end request ===\n");
+
             Ok(response)
         }
         Err(e) => Err(StatusCode::from(e)),
@@ -159,11 +158,10 @@ pub async fn auth_middleware(
 
 async fn verify_and_update_channel(
     state: &ChannelState,
-    request: &SignedRequest,
+    mut request: SignedRequest,
 ) -> Result<PaymentChannel, AuthError> {
     println!("\n=== verify_and_update_channel ===");
     println!("Payment amount: {}", request.payment_amount);
-    // Print the payment channel data JSON
     println!(
         "Payment channel: {}",
         serde_json::to_string(&request.payment_channel).unwrap()
@@ -173,8 +171,8 @@ async fn verify_and_update_channel(
     println!("Message length: {}", request.message.len());
     println!("Original message: 0x{}", hex::encode(&request.message));
 
-    // Verify signature using network-specific logic
-    let recovered_address = state
+    // 1. Verify signature using network-specific logic
+    state
         .verify_signature(
             &request.payment_channel,
             &request.signature,
@@ -182,13 +180,15 @@ async fn verify_and_update_channel(
         )
         .await?;
 
+    // 2. Check for rate limiting
     state
         .check_rate_limit(request.payment_channel.sender)
         .await?;
 
     let mut channels = state.channels.write().await;
 
-    // Check if channel exists and validate nonce
+    // Check if channel exists
+    // NOTE: Nonce validation can be skipped as the balance will be acting as nonce here, the sender will always send the tx with the highest balance, we'll check for that here within our local record
     if let Some(existing_channel) = channels.get(&request.payment_channel.channel_id) {
         println!("Existing channel found");
         // Ensure new nonce is greater than existing nonce
@@ -201,20 +201,34 @@ async fn verify_and_update_channel(
         } else {
             println!("Nonce match");
         }
+
+        if request.payment_channel.balance != existing_channel.balance {
+            println!(
+                "Failed: Invalid balance - current: {}, received: {}",
+                existing_channel.balance, request.payment_channel.balance
+            );
+            return Err(AuthError::InvalidChannel);
+        } else {
+            println!("Balance match");
+        }
     } else {
         println!("New channel found");
-        // Validate channel balance using network-specific logic
-        // state.validate_channel(&request.payment_channel).await?;
 
-        // Handle the case where the channel does not exist
-        // Ensure the nonce is 0
         // Verify that the channel contract data is correct
         // 1. Verify the balance is available in the contract as the channel balance
         // 2. Verify the expiration is in the future
         // 3. Verify the channel ID is correct
+        state.validate_channel(&request.payment_channel).await?;
+
+        // Ensure the nonce is 0
+        if request.payment_channel.nonce != U256::from(0) {
+            return Err(AuthError::InvalidChannel);
+        }
     }
 
+    // NOTE: Update Balance for updating the local state, deducting the balance from the channel
     println!("Updating channel state");
+    request.payment_channel.balance -= request.payment_amount;
 
     // Update or insert the channel
     channels.insert(

@@ -2,7 +2,9 @@
 
 ## Overview
 
-The `@pipegate-sdk/server` middleware provides server-side verification and payment channel management for the PipeGate protocol. This guide covers the setup and configuration for API providers using the Rust implementation.
+The `pipegate` middleware provides server-side verification and payment channel management for the PipeGate protocol. This guide covers the setup and configuration for API providers using the Rust implementation.
+
+NOTE : Only live on Base sepolia ( rpc: "https://base-sepolia-rpc.publicnode.com" )
 
 ## Installation
 
@@ -10,7 +12,7 @@ Add the following dependencies to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-super-mario-luigi = { version = "0.1.0" }  # PipeGate server middleware
+pipegate = { version = "0.1.0" }  # PipeGate server middleware
 axum = "0.7"                               # Web framework
 tokio = { version = "1.0", features = ["full"] }
 alloy = { version = "0.1", features = ["providers"] }
@@ -23,16 +25,16 @@ alloy = { version = "0.1", features = ["providers"] }
 ```rust
 use alloy::{primitives::U256, providers::ProviderBuilder};
 use axum::{routing::get, Router};
-use super_mario_luigi::{channel::ChannelState, middleware::auth_middleware};
+use pipegate::{channel::ChannelState, middleware::auth_middleware};
 
 #[tokio::main]
 async fn main() {
     // Configure RPC endpoint
     let rpc_url: alloy::transports::http::reqwest::Url =
-        "https://1rpc.io/sepolia".parse().unwrap();
+        "https://base-sepolia-rpc.publicnode.com".parse().unwrap();
 
-    // Configure payment amount per request
-    let payment_amount = U256::from(1_000_000_000_000_000u128); // 0.001 ETH
+    // Configure payment amount per request ( not in decimals, parsed down )
+    let payment_amount = U256::from(1000); // 0.001 USDC
 
     // Initialize channel state
     let state = ChannelState::new(rpc_url.clone());
@@ -55,10 +57,52 @@ async fn root() -> &'static str {
 }
 ```
 
+## Closing channel & withdraw
+
+```rust
+use pipegate::errors::PaymentError;
+pub async fn close_and_withdraw(_state: &ChannelState) {
+
+    // Read the payment channel state
+    // let payment_channel = state.get_channel(U256::from(1)).await.unwrap();
+    //or
+    // Define the payment channe
+    let payment_channel = PaymentChannel {
+        address: Address::from_str("0x4cf93d3b7cd9d50ecfba2082d92534e578fe46f6").unwrap(),
+        sender: Address::from_str("0x898d0dbd5850e086e6c09d2c83a26bb5f1ff8c33").unwrap(),
+        recipient: Address::from_str("0x62c43323447899acb61c18181e34168903e033bf").unwrap(),
+        balance: U256::from(1000000),
+        nonce: U256::from(0),
+        expiration: U256::from(1734391330),
+        channel_id: U256::from(1),
+    };
+
+    // Can be temporarily retrieved from the logs the latest one
+    let signature : Signature = Signature::from_str("0x...").unwrap();
+
+    // raw body of the same request
+    let raw_body = Bytes::from("0x");
+
+    let rpc_url: alloy::transports::http::reqwest::Url =
+        "https://base-sepolia-rpc.publicnode.com".parse().unwrap();
+
+    let private_key = env::var("PRIVATE_KEY").expect("PRIVATE_KEY must be set");
+
+    let tx_hash = close_channel(
+        rpc_url,
+        private_key.as_str(),
+        &payment_channel,
+        &signature,
+        raw_body,
+    );
+}
+
+```
+
 ## Error Handling
 
 ```rust
-use super_mario_luigi::errors::PaymentError;
+use pipegate::errors::PaymentError;
 
 async fn handle_request() -> Result<Response, PaymentError> {
     match process_request().await {
@@ -85,8 +129,8 @@ async fn handle_request() -> Result<Response, PaymentError> {
 
 ```bash
 # .env
-RPC_URL=https://1rpc.io/sepolia
-MIN_PAYMENT_AMOUNT=1000000000000000
+RPC_URL=https://base-sepolia-rpc.publicnode.com
+MIN_PAYMENT_AMOUNT=1000
 CHANNEL_FACTORY_ADDRESS=0x...
 ```
 

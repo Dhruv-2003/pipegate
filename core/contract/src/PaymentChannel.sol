@@ -25,7 +25,7 @@ contract PaymentChannel {
     address public recipient;
     uint256 public expiration; // Timeout in case the recipient never closes.
 
-    uint256 public balance; // Token balance
+    uint256 public depositBalance; // Token balance
     IERC20 public token; // Token address
 
     uint256 public price; // Price per API request decided by the recipient
@@ -90,7 +90,7 @@ contract PaymentChannel {
         token = IERC20(_tokenAddress);
         // Transfer the token amount to the contract from the calling contracts
         token.transferFrom(msg.sender, address(this), _amount);
-        balance = _amount;
+        depositBalance = _amount;
 
         price = _price;
         channelId = _channelId;
@@ -102,7 +102,7 @@ contract PaymentChannel {
             sender,
             recipient,
             expiration,
-            balance,
+            depositBalance,
             price,
             0
         );
@@ -112,23 +112,24 @@ contract PaymentChannel {
     function deposit(uint _amount) external {
         require(msg.sender == sender, "Only sender can deposit");
         token.transferFrom(sender, address(this), _amount);
-        balance += _amount;
+        depositBalance += _amount;
 
-        emit depositMade(channelId, sender, recipient, _amount, balance);
+        emit depositMade(channelId, sender, recipient, _amount, depositBalance);
     }
 
     // Closing the channel using the senders signature to claim the amount & transfer the amount to the recipient
     // NOTE: Edge case possible, that does the contract owner
     function close(
-        uint256 totalAmount, // the amount of credits used
+        uint256 channelBalance, // the balance left in the channel
         uint256 nonce,
+        bytes calldata rawBody,
         bytes calldata signature
     ) public {
         require(msg.sender == recipient);
 
         // Verify the signature
         bytes32 messageHash = keccak256(
-            abi.encodePacked(address(this), totalAmount, nonce)
+            abi.encodePacked(channelId, channelBalance, nonce, rawBody)
         );
         bytes32 ethSignedMessageHash = getEthSignedMessageHash(messageHash);
 
@@ -137,11 +138,13 @@ contract PaymentChannel {
             "Invalid Signature"
         );
 
+        uint256 totalAmount = getBalance() - channelBalance;
+
         // Token transfer to the recipient
         token.transfer(recipient, totalAmount);
 
         // Transfer the remaining balance to the sender
-        uint256 remainingBalance = token.balanceOf(address(this));
+        uint256 remainingBalance = getBalance();
         if (remainingBalance > 0) {
             token.transfer(sender, remainingBalance);
         }

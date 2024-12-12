@@ -7,7 +7,7 @@
 RPC_URL="https://base-sepolia-rpc.publicnode.com"
 PRIVATE_KEY=""  # Replace with your private key , Ensure the account has enough balance to create a channel
 TOKEN_ADDRESS="0x036CbD53842c5426634e7929541eC2318f3dCF7e" # USDC
-CHANNEL_FACTORY_ADDRESS="0xf2Cabfa8B29bFB86956D1960fF748f27836E1E14"
+CHANNEL_FACTORY_ADDRESS="0x09443Ec32E54916366927ccDC9D372474324F427"
 RECIPIENT="0x62C43323447899acb61C18181e34168903E033Bf"
 AMOUNT="1000000"  # Token amount in 10^6 (e.g., 1 USDC)
 DURATION="2592000"  # Duration in seconds (e.g., 30 days)
