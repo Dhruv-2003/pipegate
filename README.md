@@ -20,17 +20,16 @@ PipeGate is a decentralized API monetization protocol that changes how APIs hand
 
 - Gasless microtransactions using payment channels
 - Automatic request signing and payment handling
+- No API keys needed - just your wallet
 - Real-time balance updates
-- No API keys needed - just connect your wallet
-- Self-service API monetization
-- Pay-as-you-go pricing model
+- Self-served onboarding 
 
 **This solves three critical problems:**
 
-- High gas fees for micropayments
-- Complex API key management
-- Separate payment and access control systems
-
+- Too many API keys
+- Complex API & Auth management for providers
+- Payment gateway fees
+  
 ## Demo
 
 - [Youtube Video](https://youtu.be/8KZ1sLNRUwY)
@@ -45,7 +44,7 @@ PipeGate is built using a stack of modern Web3 technologies and standard web pro
 
    - Payment Channel Factory for channel creation
    - Channel contracts for handling payments
-   - Proxy pattern for upgradability
+   - Beacon Proxy pattern for low deployment fees
 
 2. [Client SDK (TypeScript)](https://github.com/Dhruv-2003/pipegate/tree/main/core/client):
 
@@ -55,9 +54,8 @@ PipeGate is built using a stack of modern Web3 technologies and standard web pro
 
 3. [Server Middleware (Rust)](https://github.com/Dhruv-2003/pipegate/tree/main/core/server):
 
-   - High-performance signature verification
+   - Signature verification
    - Payment channel state management
-   - Request validation and processing
 
 ## Architecture & Flow
 
