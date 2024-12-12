@@ -15,7 +15,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Dhruv-2003/ethbangkok-24"
+    "url": "git+https://github.com/Dhruv-2003/pipegate"
   },
   "keywords": [
     "typescript",
@@ -26,7 +26,7 @@
     "ethereum"
   ],
   "license": "MIT",
-  "homepage": "https://github.com/Dhruv-2003/ethbangkok-24#readme",
+  "homepage": "https://github.com/Dhruv-2003/pipegate#readme",
   "devDependencies": {
     "@types/node": "^22.9.0"
   },
