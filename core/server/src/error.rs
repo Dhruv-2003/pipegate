@@ -11,6 +11,8 @@ pub enum AuthError {
     InsufficientBalance,
     #[error("Payment channel expired")]
     Expired,
+    #[error("Invalid nonce")]
+    InvalidNonce,
     #[error("Invalid payment channel")]
     InvalidChannel,
     #[error("Channel not found")]
@@ -23,6 +25,8 @@ pub enum AuthError {
     NetworkError(String),
     #[error("Invalid network configuration")]
     InvalidConfig,
+    #[error("Invalid message")]
+    InvalidMessage,
 }
 
 impl From<AuthError> for StatusCode {
@@ -32,12 +36,14 @@ impl From<AuthError> for StatusCode {
             AuthError::InvalidSignature => StatusCode::UNAUTHORIZED,
             AuthError::InsufficientBalance => StatusCode::PAYMENT_REQUIRED,
             AuthError::Expired => StatusCode::REQUEST_TIMEOUT,
+            AuthError::InvalidNonce => StatusCode::BAD_REQUEST,
             AuthError::InvalidChannel => StatusCode::BAD_REQUEST,
             AuthError::RateLimitExceeded => StatusCode::TOO_MANY_REQUESTS,
             AuthError::ChannelNotFound => StatusCode::NOT_FOUND,
             AuthError::ContractError(_) => StatusCode::INTERNAL_SERVER_ERROR,
             AuthError::NetworkError(_) => StatusCode::INTERNAL_SERVER_ERROR,
             AuthError::InvalidConfig => StatusCode::BAD_REQUEST,
+            AuthError::InvalidMessage => StatusCode::BAD_REQUEST,
         }
     }
 }

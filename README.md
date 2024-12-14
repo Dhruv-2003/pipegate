@@ -74,7 +74,7 @@ PipeGate is built using a stack of modern Web3 technologies and standard web pro
 
    - Add your pricing info to ChannelFactory by registering yourselves.
    - Can directly interact with contract using cast [here](https://github.com/Dhruv-2003/pipegate/tree/main/core/contract#for-api-providers)
-   - Or using a scripts [here](https://github.com/Dhruv-2003/pipegate/blob/main/example/scripts/1_registerAsProvider.ts)
+   - Or using a scripts [here](https://github.com/Dhruv-2003/pipegate/blob/main/example/ts/scripts/1_registerAsProvider.ts)
 
 2. **Add the server-side middleware:**
 
@@ -90,7 +90,7 @@ PipeGate is built using a stack of modern Web3 technologies and standard web pro
 
 1. **Create a payment channel:**
 
-   - Use the client-side SDK to create a payment channel with this [script](https://github.com/Dhruv-2003/pipegate/blob/main/example/scripts/2_createChannel.ts)
+   - Use the client-side SDK to create a payment channel with this [script](https://github.com/Dhruv-2003/pipegate/blob/main/example/ts/scripts/2_createChannel.ts)
    - Supported with sdk in typescript [lib](https://github.com/Dhruv-2003/pipegate/tree/main/core/client)
    - Or directly interact with contract using cast [here](https://github.com/Dhruv-2003/pipegate/tree/main/core/contract#for-api-consumers)
 

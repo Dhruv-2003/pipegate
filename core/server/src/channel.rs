@@ -59,7 +59,6 @@ impl ChannelState {
         // self.network.verify_signature(signature, message).await
 
         // Network logic to verify the signature, could be a simple ECDSA verification
-        // TODO: Recheck this logic
         let recovered = signature.recover_address_from_msg(message);
         println!("Recovered address: {:?}", recovered);
 

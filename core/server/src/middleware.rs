@@ -10,9 +10,8 @@ use axum::{
 
 use crate::{
     channel::ChannelState,
-    error::AuthError,
     types::{PaymentChannel, SignedRequest},
-    utils::create_message,
+    verify::verify_and_update_channel,
 };
 
 pub async fn auth_middleware(
@@ -107,26 +106,12 @@ pub async fn auth_middleware(
     };
     println!("Body: {}", String::from_utf8_lossy(&body_bytes));
 
-    // Verify that the message matches what we expect
-    let reconstructed_message = create_message(
-        payment_channel.channel_id,
-        payment_channel.balance,
-        payment_channel.nonce,
-        &body_bytes,
-    );
-
-    if message != reconstructed_message {
-        println!("Failed: Message mismatch");
-        return Err(StatusCode::BAD_REQUEST);
-    } else {
-        println!("Message match");
-    }
-
     let signed_request = SignedRequest {
         message,
         signature,
         payment_channel,
         payment_amount,
+        body_bytes: body_bytes.to_vec(),
     };
 
     // Validate the headers against the payment channel state and return the response
@@ -154,88 +139,4 @@ pub async fn auth_middleware(
         }
         Err(e) => Err(StatusCode::from(e)),
     }
-}
-
-async fn verify_and_update_channel(
-    state: &ChannelState,
-    mut request: SignedRequest,
-) -> Result<PaymentChannel, AuthError> {
-    println!("\n=== verify_and_update_channel ===");
-    println!("Payment amount: {}", request.payment_amount);
-    println!(
-        "Payment channel: {}",
-        serde_json::to_string(&request.payment_channel).unwrap()
-    );
-    println!("Channel balance: {}", request.payment_channel.balance);
-
-    println!("Message length: {}", request.message.len());
-    println!("Original message: 0x{}", hex::encode(&request.message));
-
-    // 1. Verify signature using network-specific logic
-    state
-        .verify_signature(
-            &request.payment_channel,
-            &request.signature,
-            &request.message,
-        )
-        .await?;
-
-    // 2. Check for rate limiting
-    state
-        .check_rate_limit(request.payment_channel.sender)
-        .await?;
-
-    let mut channels = state.channels.write().await;
-
-    // Check if channel exists
-    // NOTE: Nonce validation can be skipped as the balance will be acting as nonce here, the sender will always send the tx with the highest balance, we'll check for that here within our local record
-    if let Some(existing_channel) = channels.get(&request.payment_channel.channel_id) {
-        println!("Existing channel found");
-        // Ensure new nonce is greater than existing nonce
-        if request.payment_channel.nonce <= existing_channel.nonce {
-            println!(
-                "Failed: Invalid nonce - current: {}, received: {}",
-                existing_channel.nonce, request.payment_channel.nonce
-            );
-            return Err(AuthError::InvalidChannel);
-        } else {
-            println!("Nonce match");
-        }
-
-        if request.payment_channel.balance != existing_channel.balance {
-            println!(
-                "Failed: Invalid balance - current: {}, received: {}",
-                existing_channel.balance, request.payment_channel.balance
-            );
-            return Err(AuthError::InvalidChannel);
-        } else {
-            println!("Balance match");
-        }
-    } else {
-        println!("New channel found");
-
-        // Verify that the channel contract data is correct
-        // 1. Verify the balance is available in the contract as the channel balance
-        // 2. Verify the expiration is in the future
-        // 3. Verify the channel ID is correct
-        state.validate_channel(&request.payment_channel).await?;
-
-        // Ensure the nonce is 0
-        if request.payment_channel.nonce != U256::from(0) {
-            return Err(AuthError::InvalidChannel);
-        }
-    }
-
-    // NOTE: Update Balance for updating the local state, deducting the balance from the channel
-    println!("Updating channel state");
-    request.payment_channel.balance -= request.payment_amount;
-
-    // Update or insert the channel
-    channels.insert(
-        request.payment_channel.channel_id,
-        request.payment_channel.clone(),
-    );
-
-    println!("API request authorized");
-    Ok(request.payment_channel.clone())
 }
