@@ -1,8 +1,8 @@
-# PipeGate - ETHBangkok 2024
+# PipeGate
 
 <!-- Pay-per-Call API Monetisation - The Web3 Stripe for APIs -->
 
-The Web3 Stripe for APIs. Create payment channels, make API calls, payments happen automatically. No API keys, no gas fees per request, just connect wallet and start building.
+The Web3 Stripe for APIs. Create payment channels, make API calls, payments happen automatically. No API keys, no gas fees per request, just use your wallet and start building.
 
 <img width="952" alt="Screenshot 2024-11-17 at 12 32 48 AM" src="https://github.com/user-attachments/assets/fe1b3926-224d-48e6-8dea-44214e471406">
 
@@ -22,14 +22,14 @@ PipeGate is a decentralized API monetization protocol that changes how APIs hand
 - Automatic request signing and payment handling
 - No API keys needed - just your wallet
 - Real-time balance updates
-- Self-served onboarding 
+- Self-served onboarding
 
 **This solves three critical problems:**
 
-- Too many API keys
+- Too many API keys for each product
 - Complex API & Auth management for providers
-- Payment gateway fees
-  
+- High payment gateway fees
+
 ## Demo
 
 - [Youtube Video](https://youtu.be/8KZ1sLNRUwY)
