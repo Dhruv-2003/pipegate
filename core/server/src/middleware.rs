@@ -1,6 +1,9 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use alloy::{hex, primitives::U256, signers::Signature};
+use alloy::{
+    hex,
+    primitives::{PrimitiveSignature, U256},
+};
 
 use axum::{
     body::Body,
@@ -20,7 +23,7 @@ pub async fn auth_middleware(
     payment_amount: U256, // defined by the developer creating the API, and should match with what user agreed with in the signed request
     request: Request<Body>,
     next: Next,
-) -> Result<Response, StatusCode> {
+) -> Result<Response<Body>, StatusCode> {
     println!("\n=== auth_middleware ===");
     println!(" === new request ===");
 
@@ -78,7 +81,7 @@ pub async fn auth_middleware(
             StatusCode::BAD_REQUEST
         })
         .and_then(|bytes| {
-            Signature::try_from(bytes.as_slice()).map_err(|_| {
+            PrimitiveSignature::try_from(bytes.as_slice()).map_err(|_| {
                 println!("Failed: Signature conversion");
                 StatusCode::BAD_REQUEST
             })

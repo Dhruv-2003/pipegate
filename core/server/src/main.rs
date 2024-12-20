@@ -1,9 +1,6 @@
 use std::{env, str::FromStr};
 
-use alloy::{
-    primitives::{Address, Bytes, U256},
-    signers::Signature,
-};
+use alloy::primitives::{Address, Bytes, U256};
 use axum::{routing::get, Router};
 use pipegate::{
     channel::{close_channel, ChannelState},
@@ -47,6 +44,8 @@ pub async fn main() {
 pub async fn close_and_withdraw(_state: &ChannelState) {
     // let payment_channel = state.get_channel(U256::from(1)).await.unwrap();
 
+    use alloy::primitives::PrimitiveSignature;
+
     let payment_channel = PaymentChannel {
         address: Address::from_str("0x4cf93d3b7cd9d50ecfba2082d92534e578fe46f6").unwrap(),
         sender: Address::from_str("0x898d0dbd5850e086e6c09d2c83a26bb5f1ff8c33").unwrap(),
@@ -57,7 +56,7 @@ pub async fn close_and_withdraw(_state: &ChannelState) {
         channel_id: U256::from(1),
     };
 
-    let signature : Signature = Signature::from_str("0x9dbbaab8fb419ad1fc50d2d7d0c037f6621d8fc22701b92c503d80e262081d2a11343599127d064b9ca054cd0ae29c7025394f658b47b4c5c102bfd631d7bcb91b").unwrap();
+    let signature  = PrimitiveSignature::from_str("0x9dbbaab8fb419ad1fc50d2d7d0c037f6621d8fc22701b92c503d80e262081d2a11343599127d064b9ca054cd0ae29c7025394f658b47b4c5c102bfd631d7bcb91b").unwrap();
 
     let rpc_url: alloy::transports::http::reqwest::Url =
         "https://base-sepolia-rpc.publicnode.com".parse().unwrap();

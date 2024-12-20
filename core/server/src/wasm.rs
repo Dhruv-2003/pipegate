@@ -3,10 +3,10 @@ use crate::{
     types::{PaymentChannel, SignedRequest},
     verify::verify_and_update_channel,
 };
+
 use alloy::{
     hex,
-    primitives::{Bytes, U256},
-    signers::Signature,
+    primitives::{Bytes, PrimitiveSignature, U256},
 };
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::future_to_promise;
@@ -44,10 +44,10 @@ impl PaymentChannelVerifier {
             let message: Vec<u8> = unhexlify(&message)
                 .map_err(|e| JsValue::from_str(&format!("Invalid request: {}", e)))?;
 
-            let signature: Signature = unhexlify(&signature)
+            let signature: PrimitiveSignature = unhexlify(&signature)
                 .map_err(|e| JsValue::from_str(&format!("Invalid signature: {}", e)))
                 .and_then(|bytes| {
-                    Signature::try_from(bytes.as_slice())
+                    PrimitiveSignature::try_from(bytes.as_slice())
                         .map_err(|_| JsValue::from_str("Invalid signature: invalid length"))
                 })?;
 
@@ -86,10 +86,10 @@ pub fn close_and_withdraw_channel(
             .parse()
             .map_err(|e| JsValue::from_str(&format!("Invalid URL: {}", e)))?;
 
-        let signature: Signature = unhexlify(&signature)
+        let signature: PrimitiveSignature = unhexlify(&signature)
             .map_err(|e| JsValue::from_str(&format!("Invalid signature: {}", e)))
             .and_then(|bytes| {
-                Signature::try_from(bytes.as_slice())
+                PrimitiveSignature::try_from(bytes.as_slice())
                     .map_err(|_| JsValue::from_str("Invalid signature: invalid length"))
             })?;
 
