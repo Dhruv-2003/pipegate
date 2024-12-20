@@ -11,6 +11,7 @@ use pipegate::{
     types::PaymentChannel,
 };
 
+#[cfg(not(target_arch = "wasm32"))]
 #[tokio::main]
 pub async fn main() {
     // a mock server implementation using axum
@@ -42,6 +43,7 @@ pub async fn main() {
     println!("Listening on: http://localhost:3000");
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 pub async fn close_and_withdraw(_state: &ChannelState) {
     // let payment_channel = state.get_channel(U256::from(1)).await.unwrap();
 
