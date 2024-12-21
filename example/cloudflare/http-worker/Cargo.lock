@@ -1554,6 +1554,7 @@ dependencies = [
  "console_error_panic_hook",
  "http",
  "pipegate",
+ "serde_json",
  "worker",
  "worker-macros",
 ]
