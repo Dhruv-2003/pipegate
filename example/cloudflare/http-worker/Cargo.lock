@@ -1551,6 +1551,7 @@ name = "http-worker"
 version = "0.1.0"
 dependencies = [
  "alloy 0.8.3",
+ "axum",
  "console_error_panic_hook",
  "http",
  "pipegate",
@@ -2252,6 +2253,7 @@ version = "0.3.0"
 dependencies = [
  "alloy 0.6.4",
  "axum",
+ "futures",
  "getrandom",
  "js-sys",
  "serde",
@@ -2259,6 +2261,7 @@ dependencies = [
  "serde_with",
  "thiserror 2.0.8",
  "tokio",
+ "tower",
  "wasm-bindgen",
  "wasm-bindgen-futures",
 ]
