@@ -12,6 +12,9 @@ use axum::{
     response::Response,
 };
 
+#[cfg(target_arch = "wasm32")]
+use js_sys::Date;
+
 use crate::{
     channel::ChannelState,
     types::{PaymentChannel, SignedRequest},
@@ -38,10 +41,14 @@ pub async fn auth_middleware(
 
     println!("Timestamp: {}", timestamp);
 
+    #[cfg(not(target_arch = "wasm32"))]
     let now = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap()
         .as_secs();
+
+    #[cfg(target_arch = "wasm32")]
+    let now = (Date::now() as u64) / 1000;
 
     if now - timestamp > 300 {
         return Err(StatusCode::REQUEST_TIMEOUT);
@@ -117,6 +124,11 @@ pub async fn auth_middleware(
         payment_amount,
         body_bytes: body_bytes.to_vec(),
     };
+
+    // Check for rate limiting
+    state
+        .check_rate_limit(signed_request.payment_channel.sender)
+        .await?;
 
     // Validate the headers against the payment channel state and return the response
     match verify_and_update_channel(&state, signed_request).await {

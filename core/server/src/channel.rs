@@ -16,6 +16,10 @@ use alloy::{
     sol,
 };
 use alloy::{primitives::Bytes, transports::http::reqwest::Url};
+
+#[cfg(target_arch = "wasm32")]
+use js_sys::Date;
+
 use tokio::sync::RwLock;
 
 use crate::{error::AuthError, types::PaymentChannel};
@@ -157,10 +161,15 @@ impl ChannelState {
         const WINDOW: u64 = 60; // Every 60 seconds
 
         let mut rate_limits = self.rate_limiter.write().await;
+
+        #[cfg(not(target_arch = "wasm32"))]
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_secs();
+
+        #[cfg(target_arch = "wasm32")]
+        let now = (Date::now() as u64) / 1000;
 
         let (count, last_reset) = rate_limits.entry(sender).or_insert((0, SystemTime::now()));
 

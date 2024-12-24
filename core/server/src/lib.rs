@@ -4,7 +4,12 @@ pub mod middleware;
 pub mod types;
 pub mod utils;
 pub mod verify;
+
+// #[cfg(target_arch = "wasm32")]
 pub mod wasm;
+
+// #[cfg(target_arch = "wasm32")]
+pub use wasm::*;
 
 #[cfg(test)]
 #[cfg(not(target_arch = "wasm32"))]

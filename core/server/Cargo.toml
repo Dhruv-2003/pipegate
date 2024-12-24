@@ -9,7 +9,7 @@ repository="https://github.com/Dhruv-2003/pipegate"
 readme ="README.md"
 keywords = ["blockchain", "payment", "ethereum"]
 categories = ["cryptography", "network-programming", "web-programming"]
-exclude=["src/main.rs"]
+exclude=["src/main.rs","test"]
 
 [dependencies]
 alloy = { version = "0.6.4",  default-features = false, features = ["contract","signer-local","provider-http","reqwest"]  }
@@ -20,6 +20,8 @@ thiserror = "2.0.3"
 js-sys = "0.3.76"
 wasm-bindgen = "0.2.99"
 wasm-bindgen-futures = "0.4.49"
+console_error_panic_hook = "0.1.7"
+console_log = "1.0.0"
 
 [lib]
 crate-type = ["cdylib", "rlib"]
@@ -32,3 +34,9 @@ axum = "0.7.8"
 tokio = { version = "1.41.1", features = ["sync"] }
 axum = {version = "0.7.8", default-features = false }
 getrandom = { version = "0.2", features = ["js"] }
+
+[package.metadata.wasm-pack.profile.release]
+wasm-opt = false
+
+[package.metadata.wasm-pack.profile.dev]
+wasm-opt = false

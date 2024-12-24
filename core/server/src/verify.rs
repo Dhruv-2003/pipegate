@@ -1,6 +1,10 @@
+#[cfg(not(target_arch = "wasm32"))]
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use alloy::{hex, primitives::U256};
+
+#[cfg(target_arch = "wasm32")]
+use js_sys::Date;
 
 use crate::{
     channel::ChannelState,
@@ -23,11 +27,6 @@ pub async fn verify_and_update_channel(
 
     println!("Message length: {}", request.message.len());
     println!("Original message: 0x{}", hex::encode(&request.message));
-
-    // Check for rate limiting
-    state
-        .check_rate_limit(request.payment_channel.sender)
-        .await?;
 
     // Verify that the message matches what we expect
     let reconstructed_message = create_message(
@@ -56,10 +55,14 @@ pub async fn verify_and_update_channel(
     let mut channels = state.channels.write().await;
 
     // Check if the channel is not expired with the current timestamp
+    #[cfg(not(target_arch = "wasm32"))]
     let now = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap()
         .as_secs();
+
+    #[cfg(target_arch = "wasm32")]
+    let now = (Date::now() as u64) / 1000;
 
     if request.payment_channel.expiration < U256::from(now) {
         return Err(AuthError::Expired);

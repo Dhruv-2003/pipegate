@@ -8,8 +8,18 @@ use alloy::{
     hex,
     primitives::{Bytes, PrimitiveSignature, U256},
 };
+
+use console_error_panic_hook;
+// use console_log;
+
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::future_to_promise;
+
+#[wasm_bindgen(start)]
+pub fn initialize_logging() {
+    console_error_panic_hook::set_once();
+    // console_log::init_with_level()
+}
 
 #[wasm_bindgen]
 pub struct PaymentChannelVerifier {
@@ -66,7 +76,9 @@ impl PaymentChannelVerifier {
 
             let result = verify_and_update_channel(&state, request)
                 .await
-                .map_err(|e| JsValue::from_str(&format!("Verification failed: {}", e)))?;
+                .map_err(|e| {
+                    JsValue::from_str(&format!("Verification failed: {}", e.to_string()))
+                })?;
 
             Ok(JsValue::from_str(&serde_json::to_string(&result).unwrap()))
         })
