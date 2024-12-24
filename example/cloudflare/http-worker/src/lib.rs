@@ -6,6 +6,7 @@ use http::StatusCode;
 use pipegate::{
     channel::ChannelState,
     types::{PaymentChannel, SignedRequest},
+    utils::parse_headers_axum,
     verify::verify_and_update_channel,
 };
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -97,18 +98,28 @@ async fn fetch(_req: Request, _env: Env, _ctx: Context) -> Result<HttpResponse> 
     //     })
     //     .unwrap();
 
-    // Convert body_bytes into a `Bytes` object or process as needed
-    // TODO: Implement this
-    let mut _body = request.into_body();
-    let body_bytes = Bytes::from("0x");
+    // // Convert body_bytes into a `Bytes` object or process as needed
+    // // TODO: Implement this
+    // let mut _body = request.into_body();
+    // let body_bytes = Bytes::from("0x");
 
     // prepare a signed request
-    let signed_request = SignedRequest {
-        message,
-        signature,
-        payment_channel,
-        payment_amount,
-        body_bytes: body_bytes.to_vec(),
+    // let signed_request = SignedRequest {
+    //     message,
+    //     signature,
+    //     payment_channel,
+    //     payment_amount,
+    //     body_bytes: body_bytes.to_vec(),
+    // };
+    let axum_request: axum::http::Request<axum::body::Body> = request.into();
+
+    let parsed_response = parse_headers_axum(axum_request, payment_amount).await;
+
+    let (signed_request, parts) = match parsed_response {
+        Ok(s) => s,
+        Err(e) => {
+            return Ok(http::Response::builder().status(e).body(Body::empty())?);
+        }
     };
 
     // verify and update the channel

@@ -1,130 +1,128 @@
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::{future::Future, pin::Pin};
 
-use alloy::{
-    hex,
-    primitives::{PrimitiveSignature, U256},
-};
+use alloy::primitives::U256;
 
 use axum::{
     body::Body,
     http::{Request, StatusCode},
-    middleware::Next,
     response::Response,
 };
 
 #[cfg(target_arch = "wasm32")]
 use js_sys::Date;
 
+use serde_json::json;
+use tower::{Layer, Service};
+
 use crate::{
     channel::ChannelState,
-    error::AuthError,
-    types::{PaymentChannel, SignedRequest},
+    types::PaymentChannel,
+    utils::{modify_headers_axum, parse_headers_axum},
     verify::verify_and_update_channel,
 };
+
+#[derive(Clone)]
+#[cfg(not(target_arch = "wasm32"))]
+pub struct PipegateMiddlewareLayer {
+    state: ChannelState,
+    payment_amount: U256,
+}
+
+impl PipegateMiddlewareLayer {
+    pub fn new(state: ChannelState, payment_amount: U256) -> Self {
+        Self {
+            state,
+            payment_amount,
+        }
+    }
+}
+
+impl<S> Layer<S> for PipegateMiddlewareLayer {
+    type Service = PipegateMiddleware<S>;
+
+    fn layer(&self, service: S) -> Self::Service {
+        PipegateMiddleware {
+            state: self.state.clone(),
+            payment_amount: self.payment_amount,
+            inner: service,
+        }
+    }
+}
+
+#[derive(Clone)]
+#[cfg(not(target_arch = "wasm32"))]
+pub struct PipegateMiddleware<S> {
+    inner: S,
+    state: ChannelState,
+    payment_amount: U256,
+}
+
+impl<S> Service<Request<Body>> for PipegateMiddleware<S>
+where
+    S: Service<Request<Body>, Response = Response> + Clone + Send + 'static,
+    S::Future: Send + 'static,
+{
+    type Response = S::Response;
+    type Error = S::Error;
+
+    // #[cfg(target_arch = "wasm32")]
+    // type Future = Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>>>>;
+
+    #[cfg(not(target_arch = "wasm32"))]
+    type Future = Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send>>;
+
+    fn poll_ready(
+        &mut self,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Result<(), Self::Error>> {
+        self.inner.poll_ready(cx)
+    }
+
+    fn call(&mut self, req: Request<Body>) -> Self::Future {
+        let state = self.state.clone();
+        let payment_amount = self.payment_amount;
+        let mut inner = self.inner.clone();
+
+        Box::pin(async move {
+            match auth_middleware(state, payment_amount, req).await {
+                Ok((request, payment_channel, state)) => {
+                    state
+                        .channels
+                        .write()
+                        .await
+                        .insert(payment_channel.channel_id, payment_channel.clone());
+
+                    let response = inner.call(request).await?;
+
+                    let response = modify_headers_axum(response, &payment_channel);
+                    Ok(response)
+                }
+                Err(err) => {
+                    let mut error_response = Response::new(Body::from(
+                        json!({
+                            "error": err.to_string()
+                        })
+                        .to_string(),
+                    ));
+                    *error_response.status_mut() = err;
+                    Ok(error_response)
+                }
+            }
+        })
+    }
+}
 
 pub async fn auth_middleware(
     state: ChannelState,
     payment_amount: U256, // defined by the developer creating the API, and should match with what user agreed with in the signed request
-    request: Request<Body>,
-    next: Next,
-) -> Result<Response<Body>, StatusCode> {
+    request: Request<axum::body::Body>,
+    // next: Next<B>,
+) -> Result<(Request<Body>, PaymentChannel, ChannelState), StatusCode> {
     println!("\n=== auth_middleware ===");
     println!(" === new request ===");
 
-    // parse the request to retrieve the required headers
-    // Check timestamp first
-    let timestamp = request
-        .headers()
-        .get("X-Timestamp")
-        .and_then(|t| t.to_str().ok())
-        .and_then(|t| t.parse::<u64>().ok())
-        .ok_or(StatusCode::BAD_REQUEST)?;
-
-    println!("Timestamp: {}", timestamp);
-
-    #[cfg(not(target_arch = "wasm32"))]
-    let now = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap()
-        .as_secs();
-
-    #[cfg(target_arch = "wasm32")]
-    let now = (Date::now() as u64) / 1000;
-
-    if now - timestamp > 300 {
-        return Err(StatusCode::REQUEST_TIMEOUT);
-    }
-
-    // Get and validate all required headers
-    let signature = request
-        .headers()
-        .get("X-Signature")
-        .ok_or(StatusCode::UNAUTHORIZED)?
-        .to_str()
-        .map_err(|_| StatusCode::BAD_REQUEST)?;
-
-    let message = request
-        .headers()
-        .get("X-Message")
-        .ok_or(StatusCode::UNAUTHORIZED)?
-        .to_str()
-        .map_err(|_| StatusCode::BAD_REQUEST)?;
-
-    let payment_data = request
-        .headers()
-        .get("X-Payment")
-        .ok_or(StatusCode::UNAUTHORIZED)?
-        .to_str()
-        .map_err(|_| StatusCode::BAD_REQUEST)?;
-
-    // Print all the headers
-    println!("Signature: {}", signature);
-    println!("Message: {}", message);
-    println!("Payment Data: {}", payment_data);
-
-    // Parse signature
-    let signature = hex::decode(signature.trim_start_matches("0x"))
-        .map_err(|_| {
-            println!("Failed: Signature decode");
-            StatusCode::BAD_REQUEST
-        })
-        .and_then(|bytes| {
-            PrimitiveSignature::try_from(bytes.as_slice()).map_err(|_| {
-                println!("Failed: Signature conversion");
-                StatusCode::BAD_REQUEST
-            })
-        })?;
-
-    // Parse message
-    let message = hex::decode(message).map_err(|_| {
-        println!("Failed: Message decode");
-        StatusCode::BAD_REQUEST
-    })?;
-
-    // Parse payment channel data
-    let payment_channel: PaymentChannel = serde_json::from_str(payment_data).map_err(|e| {
-        println!("Failed: Payment data decode - Error {}", e);
-        StatusCode::BAD_REQUEST
-    })?;
-
-    // Get request body
-    let (parts, body) = request.into_parts();
-    let body_bytes = match axum::body::to_bytes(body, usize::MAX).await {
-        Ok(bytes) => bytes,
-        Err(_) => {
-            println!("Failed: Body decode");
-            return Err(StatusCode::BAD_REQUEST);
-        }
-    };
-    println!("Body: {}", String::from_utf8_lossy(&body_bytes));
-
-    let signed_request = SignedRequest {
-        message,
-        signature,
-        payment_channel,
-        payment_amount,
-        body_bytes: body_bytes.to_vec(),
-    };
+    let (signed_request, parts) = parse_headers_axum(request, payment_amount).await?;
+    let body_bytes = signed_request.body_bytes.clone();
 
     // Check for rate limiting
     state
@@ -132,33 +130,11 @@ pub async fn auth_middleware(
         .await?;
 
     // Validate the headers against the payment channel state and return the response
-    match verify_and_update_channel(&state, signed_request).await {
-        Ok(payment_channel) => {
-            let request = Request::from_parts(parts, Body::from(body_bytes));
+    let updated_channel = verify_and_update_channel(&state, signed_request).await?;
 
-            // Modify the response headers to include the payment channel data
-            let mut response = next.run(request).await;
-            let headers_mut = response.headers_mut();
-
-            // convert the payment channel json into string and then return that in the header
-            headers_mut.insert(
-                "X-Payment",
-                serde_json::to_string(&payment_channel)
-                    .map_err(|_| AuthError::InternalError)?
-                    .parse()
-                    .map_err(|_| AuthError::InternalError)?,
-            );
-            headers_mut.insert(
-                "X-Timestamp",
-                now.to_string()
-                    .parse()
-                    .map_err(|_| AuthError::InternalError)?,
-            );
-
-            println!(" === end request ===\n");
-
-            Ok(response)
-        }
-        Err(e) => Err(StatusCode::from(e)),
-    }
+    Ok((
+        Request::from_parts(parts, Body::from(body_bytes)),
+        updated_channel,
+        state,
+    ))
 }
