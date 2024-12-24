@@ -91,7 +91,7 @@ impl ChannelState {
             .getBalance()
             .call()
             .await
-            .unwrap()
+            .map_err(|e| AuthError::ContractError(e.to_string()))?
             ._0;
 
         let balance = U256::from(balance_value);
@@ -107,7 +107,7 @@ impl ChannelState {
             .expiration()
             .call()
             .await
-            .unwrap()
+            .map_err(|e| AuthError::ContractError(e.to_string()))?
             ._0;
 
         let expiration = U256::from(expiration_value);
@@ -123,7 +123,7 @@ impl ChannelState {
             .channelId()
             .call()
             .await
-            .unwrap()
+            .map_err(|e| AuthError::ContractError(e.to_string()))?
             ._0;
         let channel_id = U256::from(channel_id_value);
 
@@ -134,7 +134,12 @@ impl ChannelState {
         }
 
         // Verify sender and recipient from the contract
-        let sender_value = payment_channel_contract.sender().call().await.unwrap()._0;
+        let sender_value = payment_channel_contract
+            .sender()
+            .call()
+            .await
+            .map_err(|e| AuthError::ContractError(e.to_string()))?
+            ._0;
 
         if payment_channel.sender != sender_value {
             return Err(AuthError::InvalidChannel);
@@ -144,7 +149,7 @@ impl ChannelState {
             .recipient()
             .call()
             .await
-            .unwrap()
+            .map_err(|e| AuthError::ContractError(e.to_string()))?
             ._0;
 
         if payment_channel.recipient != recipient_value {

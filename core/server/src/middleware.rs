@@ -17,6 +17,7 @@ use js_sys::Date;
 
 use crate::{
     channel::ChannelState,
+    error::AuthError,
     types::{PaymentChannel, SignedRequest},
     verify::verify_and_update_channel,
 };
@@ -143,11 +144,16 @@ pub async fn auth_middleware(
             headers_mut.insert(
                 "X-Payment",
                 serde_json::to_string(&payment_channel)
-                    .unwrap()
+                    .map_err(|_| AuthError::InternalError)?
                     .parse()
-                    .unwrap(),
+                    .map_err(|_| AuthError::InternalError)?,
             );
-            headers_mut.insert("X-Timestamp", now.to_string().parse().unwrap());
+            headers_mut.insert(
+                "X-Timestamp",
+                now.to_string()
+                    .parse()
+                    .map_err(|_| AuthError::InternalError)?,
+            );
 
             println!(" === end request ===\n");
 

@@ -27,6 +27,10 @@ pub enum AuthError {
     InvalidConfig,
     #[error("Invalid message")]
     InvalidMessage,
+    #[error("Invalid request")]
+    InvalidRequest,
+    #[error("Internal Error")]
+    InternalError,
 }
 
 impl From<AuthError> for StatusCode {
@@ -44,6 +48,8 @@ impl From<AuthError> for StatusCode {
             AuthError::NetworkError(_) => StatusCode::INTERNAL_SERVER_ERROR,
             AuthError::InvalidConfig => StatusCode::BAD_REQUEST,
             AuthError::InvalidMessage => StatusCode::BAD_REQUEST,
+            AuthError::InvalidRequest => StatusCode::BAD_REQUEST,
+            AuthError::InternalError => StatusCode::INTERNAL_SERVER_ERROR,
         }
     }
 }

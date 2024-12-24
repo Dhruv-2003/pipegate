@@ -1,7 +1,7 @@
 use crate::{
     channel::{close_channel, ChannelState},
     types::{PaymentChannel, SignedRequest},
-    verify::verify_and_update_channel,
+    verify::{verify_and_update_channel, verify_channel},
 };
 
 use alloy::{
@@ -83,6 +83,59 @@ impl PaymentChannelVerifier {
             Ok(JsValue::from_str(&serde_json::to_string(&result).unwrap()))
         })
     }
+}
+
+#[wasm_bindgen]
+pub fn verify_channel_no_state(
+    rpc_url: String,
+    current_channel_json: Option<String>,
+    message: String,
+    signature: String,
+    payment_channel_json: String,
+    payment_amount: u64,
+    body_bytes: Vec<u8>,
+) -> js_sys::Promise {
+    future_to_promise(async move {
+        let rpc_url = rpc_url
+            .parse()
+            .map_err(|e| JsError::new(&format!("Invalid URL: {}", e)))?;
+
+        let message: Vec<u8> = unhexlify(&message)
+            .map_err(|e| JsValue::from_str(&format!("Invalid request: {}", e)))?;
+
+        let signature: PrimitiveSignature = unhexlify(&signature)
+            .map_err(|e| JsValue::from_str(&format!("Invalid signature: {}", e)))
+            .and_then(|bytes| {
+                PrimitiveSignature::try_from(bytes.as_slice())
+                    .map_err(|_| JsValue::from_str("Invalid signature: invalid length"))
+            })?;
+
+        let payment_channel: PaymentChannel = serde_json::from_str(&payment_channel_json)
+            .map_err(|e| JsValue::from_str(&format!("Invalid payment channel: {}", e)))?;
+
+        let current_channel: Option<PaymentChannel> = current_channel_json
+            .map(|json| {
+                serde_json::from_str(&json)
+                    .map_err(|e| JsValue::from_str(&format!("Invalid current channel: {}", e)))
+            })
+            .transpose()?;
+
+        let payment_amount = U256::from(payment_amount);
+
+        let request = SignedRequest {
+            message,
+            signature,
+            payment_channel,
+            payment_amount,
+            body_bytes,
+        };
+
+        let result = verify_channel(rpc_url, request, current_channel)
+            .await
+            .map_err(|e| JsValue::from_str(&format!("Verification failed: {}", e.to_string())))?;
+
+        Ok(JsValue::from_str(&serde_json::to_string(&result).unwrap()))
+    })
 }
 
 #[wasm_bindgen]
