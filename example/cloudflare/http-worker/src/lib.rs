@@ -8,14 +8,9 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use worker::*;
 
 #[event(fetch)]
-async fn fetch(req: HttpRequest, env: Env, _ctx: Context) -> Result<HttpResponse> {
+async fn fetch(req: Request, env: Env, _ctx: Context) -> Result<HttpResponse> {
     console_error_panic_hook::set_once();
     // console_log::init().expect("error initializing logger");
-
-    // return Ok(http::Response::builder()
-    //     .status(StatusCode::OK)
-    //     .body(Body::empty())
-    //     .unwrap());
 
     // lodge an incoming request
     println!("Incoming request");
@@ -25,27 +20,27 @@ async fn fetch(req: HttpRequest, env: Env, _ctx: Context) -> Result<HttpResponse
 
     let body_bytes = Bytes::from("0x");
 
-    let updated_channel = match parse_headers(req.into(), body_bytes.to_vec(), payment_amount).await
-    {
-        Ok((signed_request, _parts)) => {
-            let _body_bytes = signed_request.body_bytes.clone();
-            match verify_and_update_channel(&state, signed_request).await {
-                Ok(updated_channel) => updated_channel,
-                Err(e) => {
-                    return Ok(http::Response::builder()
-                        .status(e)
-                        .body(Body::empty())
-                        .unwrap())
+    let updated_channel =
+        match parse_headers(req.try_into()?, body_bytes.to_vec(), payment_amount).await {
+            Ok((signed_request, _parts)) => {
+                let _body_bytes = signed_request.body_bytes.clone();
+                match verify_and_update_channel(&state, signed_request).await {
+                    Ok(updated_channel) => updated_channel,
+                    Err(e) => {
+                        return Ok(http::Response::builder()
+                            .status(e)
+                            .body(Body::empty())
+                            .unwrap())
+                    }
                 }
             }
-        }
-        Err(e) => {
-            return Ok(http::Response::builder()
-                .status(e)
-                .body(Body::empty())
-                .unwrap())
-        }
-    };
+            Err(e) => {
+                return Ok(http::Response::builder()
+                    .status(e)
+                    .body(Body::empty())
+                    .unwrap())
+            }
+        };
 
     let ai = match env.ai("Ai") {
         Ok(ai) => ai,

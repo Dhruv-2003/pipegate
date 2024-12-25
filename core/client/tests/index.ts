@@ -83,6 +83,7 @@ async function testSDKInterceptors() {
       validateStatus: (status) => true, // Accept any status code
     });
   } catch (error) {
+    console.log(error);
     if (axios.isAxiosError(error)) {
       console.error("\nRequest Failed:");
       console.log("Status:", error.response?.status);
