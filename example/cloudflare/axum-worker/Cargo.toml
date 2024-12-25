@@ -22,3 +22,4 @@ tower-service = "0.3.2"
 console_error_panic_hook = { version = "0.1.1" }
 pipegate = { path="../../../core/server"}
 alloy = {version = "0.8.0", default-features = false}
+serde = "1.0.216"
