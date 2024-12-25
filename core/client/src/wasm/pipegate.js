@@ -242,6 +242,23 @@ export function verify_channel_no_state(rpc_url, current_channel_json, message, 
 }
 
 /**
+ * @param {string} ontime_payment_config_json
+ * @param {string} signature
+ * @param {string} tx_hash
+ * @returns {Promise<any>}
+ */
+export function verify_onetime_payment_tx(ontime_payment_config_json, signature, tx_hash) {
+    const ptr0 = passStringToWasm0(ontime_payment_config_json, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ptr1 = passStringToWasm0(signature, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len1 = WASM_VECTOR_LEN;
+    const ptr2 = passStringToWasm0(tx_hash, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len2 = WASM_VECTOR_LEN;
+    const ret = wasm.verify_onetime_payment_tx(ptr0, len0, ptr1, len1, ptr2, len2);
+    return ret;
+}
+
+/**
  * @param {string} rpc_url
  * @param {string} private_key
  * @param {string} signature
@@ -265,11 +282,11 @@ export function close_and_withdraw_channel(rpc_url, private_key, signature, paym
 }
 
 function __wbg_adapter_28(arg0, arg1, arg2) {
-    wasm.closure627_externref_shim(arg0, arg1, arg2);
+    wasm.closure657_externref_shim(arg0, arg1, arg2);
 }
 
-function __wbg_adapter_102(arg0, arg1, arg2, arg3) {
-    wasm.closure959_externref_shim(arg0, arg1, arg2, arg3);
+function __wbg_adapter_103(arg0, arg1, arg2, arg3) {
+    wasm.closure992_externref_shim(arg0, arg1, arg2, arg3);
 }
 
 const __wbindgen_enum_RequestCredentials = ["omit", "same-origin", "include"];
@@ -449,7 +466,7 @@ function __wbg_get_imports() {
                 const a = state0.a;
                 state0.a = 0;
                 try {
-                    return __wbg_adapter_102(a, state0.b, arg0, arg1);
+                    return __wbg_adapter_103(a, state0.b, arg0, arg1);
                 } finally {
                     state0.a = a;
                 }
@@ -595,8 +612,8 @@ function __wbg_get_imports() {
         const ret = false;
         return ret;
     };
-    imports.wbg.__wbindgen_closure_wrapper1164 = function(arg0, arg1, arg2) {
-        const ret = makeMutClosure(arg0, arg1, 628, __wbg_adapter_28);
+    imports.wbg.__wbindgen_closure_wrapper1226 = function(arg0, arg1, arg2) {
+        const ret = makeMutClosure(arg0, arg1, 658, __wbg_adapter_28);
         return ret;
     };
     imports.wbg.__wbindgen_debug_string = function(arg0, arg1) {

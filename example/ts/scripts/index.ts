@@ -80,4 +80,17 @@ async function extra() {
   });
 
   console.log(address);
+
+  const txHash =
+    "0xe88140d4787b1305c24961dcef2f7f73d583bb862b3cbde4b7eec854f61a0248";
+  const txMessageHash = keccak256(encodePacked(["bytes"], [txHash]));
+
+  const txSignature = await account.signMessage({
+    message: {
+      raw: txMessageHash,
+    },
+  });
+  console.log(txSignature);
 }
+
+extra();

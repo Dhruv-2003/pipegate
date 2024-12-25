@@ -2,6 +2,7 @@ use std::{env, str::FromStr};
 
 use alloy::primitives::{Address, Bytes, U256};
 use axum::{routing::get, Router};
+
 use pipegate::{
     channel::{close_channel, ChannelState},
     types::PaymentChannel,
@@ -15,7 +16,6 @@ pub async fn main() {
 
     // add middleware we created for protecting routes
     // Create a new instance of our state
-
     use pipegate::middleware::PipegateMiddlewareLayer;
     let rpc_url: alloy::transports::http::reqwest::Url =
         "https://base-sepolia-rpc.publicnode.com".parse().unwrap();
@@ -28,8 +28,10 @@ pub async fn main() {
 
     let app = Router::new()
         // `GET /` goes to `root`
-        .route("/", get(root))
-        .layer(PipegateMiddlewareLayer::new(state, payment_amount));
+        .route(
+            "/",
+            get(root).route_layer(PipegateMiddlewareLayer::new(state.clone(), payment_amount)),
+        );
 
     // run our server on localhost:3000
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();

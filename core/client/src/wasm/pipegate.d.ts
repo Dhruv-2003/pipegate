@@ -2,6 +2,7 @@
 /* eslint-disable */
 export function initialize_logging(): void;
 export function verify_channel_no_state(rpc_url: string, current_channel_json: string | undefined, message: string, signature: string, payment_channel_json: string, payment_amount: bigint, body_bytes: Uint8Array): Promise<any>;
+export function verify_onetime_payment_tx(ontime_payment_config_json: string, signature: string, tx_hash: string): Promise<any>;
 export function close_and_withdraw_channel(rpc_url: string, private_key: string, signature: string, payment_channel_json: string, body_bytes: Uint8Array): Promise<any>;
 export class PaymentChannelVerifier {
   free(): void;
@@ -17,6 +18,7 @@ export interface InitOutput {
   readonly paymentchannelverifier_new: (a: number, b: number) => [number, number, number];
   readonly paymentchannelverifier_verify_request: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: bigint, i: number, j: number) => any;
   readonly verify_channel_no_state: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: bigint, l: number, m: number) => any;
+  readonly verify_onetime_payment_tx: (a: number, b: number, c: number, d: number, e: number, f: number) => any;
   readonly close_and_withdraw_channel: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number) => any;
   readonly initialize_logging: () => void;
   readonly __wbindgen_exn_store: (a: number) => void;
@@ -27,8 +29,8 @@ export interface InitOutput {
   readonly __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;
   readonly __wbindgen_export_6: WebAssembly.Table;
   readonly __externref_table_dealloc: (a: number) => void;
-  readonly closure627_externref_shim: (a: number, b: number, c: any) => void;
-  readonly closure959_externref_shim: (a: number, b: number, c: any, d: any) => void;
+  readonly closure657_externref_shim: (a: number, b: number, c: any) => void;
+  readonly closure992_externref_shim: (a: number, b: number, c: any, d: any) => void;
   readonly __wbindgen_start: () => void;
 }
 

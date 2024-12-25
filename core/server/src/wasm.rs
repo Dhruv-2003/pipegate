@@ -1,12 +1,14 @@
+use std::str::FromStr;
+
 use crate::{
     channel::{close_channel, ChannelState},
-    types::{PaymentChannel, SignedRequest},
-    verify::{verify_and_update_channel, verify_channel},
+    types::{OneTimePaymentConfig, PaymentChannel, SignedPaymentTx, SignedRequest},
+    verify::{verify_and_update_channel, verify_channel, verify_tx},
 };
 
 use alloy::{
     hex,
-    primitives::{Bytes, PrimitiveSignature, U256},
+    primitives::{Bytes, FixedBytes, PrimitiveSignature, U256},
 };
 
 use console_error_panic_hook;
@@ -135,6 +137,38 @@ pub fn verify_channel_no_state(
             .map_err(|e| JsValue::from_str(&format!("Verification failed: {}", e.to_string())))?;
 
         Ok(JsValue::from_str(&serde_json::to_string(&result).unwrap()))
+    })
+}
+
+#[wasm_bindgen]
+pub fn verify_onetime_payment_tx(
+    ontime_payment_config_json: String,
+    signature: String,
+    tx_hash: String,
+) -> js_sys::Promise {
+    future_to_promise(async move {
+        let onetime_payment_config: OneTimePaymentConfig =
+            serde_json::from_str(&ontime_payment_config_json).map_err(|e| {
+                JsValue::from_str(&format!("Invalid onetime payment config: {}", e))
+            })?;
+
+        let signature: PrimitiveSignature = unhexlify(&signature)
+            .map_err(|e| JsValue::from_str(&format!("Invalid signature: {}", e)))
+            .and_then(|bytes| {
+                PrimitiveSignature::try_from(bytes.as_slice())
+                    .map_err(|_| JsValue::from_str("Invalid signature: invalid length"))
+            })?;
+
+        let tx_hash = FixedBytes::<32>::from_str(&tx_hash)
+            .map_err(|e| JsValue::from_str(&format!("Invalid transaction hash: {}", e)))?;
+
+        let signed_payment_tx = SignedPaymentTx { signature, tx_hash };
+
+        let result = verify_tx(signed_payment_tx, onetime_payment_config)
+            .await
+            .map_err(|e| JsValue::from_str(&format!("Verification failed: {}", e)))?;
+
+        Ok(JsValue::from_bool(result))
     })
 }
 

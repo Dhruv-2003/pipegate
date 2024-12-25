@@ -31,6 +31,10 @@ pub enum AuthError {
     InvalidRequest,
     #[error("Internal Error")]
     InternalError,
+    #[error("Transaction not found")]
+    TransactionNotFound,
+    #[error("Invalid Transaction : {0}")]
+    InvalidTransaction(String),
 }
 
 impl From<AuthError> for StatusCode {
@@ -50,6 +54,8 @@ impl From<AuthError> for StatusCode {
             AuthError::InvalidMessage => StatusCode::BAD_REQUEST,
             AuthError::InvalidRequest => StatusCode::BAD_REQUEST,
             AuthError::InternalError => StatusCode::INTERNAL_SERVER_ERROR,
+            AuthError::TransactionNotFound => StatusCode::BAD_REQUEST,
+            AuthError::InvalidTransaction(_) => StatusCode::BAD_REQUEST,
         }
     }
 }

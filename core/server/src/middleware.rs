@@ -5,6 +5,7 @@ use alloy::primitives::U256;
 use axum::{
     body::Body,
     http::{Request, StatusCode},
+    middleware::Next,
     response::Response,
 };
 
@@ -16,9 +17,9 @@ use tower::{Layer, Service};
 
 use crate::{
     channel::ChannelState,
-    types::PaymentChannel,
-    utils::{modify_headers_axum, parse_headers_axum},
-    verify::verify_and_update_channel,
+    types::{OneTimePaymentConfig, PaymentChannel},
+    utils::{headers::parse_tx_headers_axum, modify_headers_axum, parse_headers_axum},
+    verify::{verify_and_update_channel, verify_tx},
 };
 
 #[derive(Clone)]
@@ -141,4 +142,23 @@ pub async fn auth_middleware(
         updated_channel,
         state,
     ))
+}
+
+pub async fn onetime_tx_auth_middleware(
+    config: OneTimePaymentConfig,
+    request: Request<Body>,
+    next: Next,
+) -> Result<Response, StatusCode> {
+    println!("\n=== onetime_tx_auth_middleware ===");
+    println!(" === new request ===");
+
+    let signed_payment_tx = parse_tx_headers_axum(&request).await?;
+
+    let verify = verify_tx(signed_payment_tx, config).await?;
+
+    if verify {
+        Ok(next.run(request).await)
+    } else {
+        Err(StatusCode::UNAUTHORIZED)
+    }
 }
