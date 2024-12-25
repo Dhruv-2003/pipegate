@@ -1,133 +1,112 @@
-use alloy::{
-    hex,
-    primitives::{Bytes, PrimitiveSignature, U256},
-};
+use alloy::primitives::{Bytes, U256};
+
 use http::StatusCode;
 use pipegate::{
-    channel::ChannelState,
-    types::{PaymentChannel, SignedRequest},
-    utils::parse_headers_axum,
-    verify::verify_and_update_channel,
+    channel::ChannelState, utils::headers::parse_headers, verify::verify_and_update_channel,
 };
 use std::time::{SystemTime, UNIX_EPOCH};
 use worker::*;
 
 #[event(fetch)]
-async fn fetch(_req: Request, _env: Env, _ctx: Context) -> Result<HttpResponse> {
+async fn fetch(req: HttpRequest, env: Env, _ctx: Context) -> Result<HttpResponse> {
     console_error_panic_hook::set_once();
+    // console_log::init().expect("error initializing logger");
+
+    // return Ok(http::Response::builder()
+    //     .status(StatusCode::OK)
+    //     .body(Body::empty())
+    //     .unwrap());
+
+    // lodge an incoming request
+    println!("Incoming request");
 
     let state = ChannelState::new("https://base-sepolia-rpc.publicnode.com".parse().unwrap());
     let payment_amount = U256::from(1000);
-    let request = _req;
 
-    // // Decode all the info from headers
+    let body_bytes = Bytes::from("0x");
 
-    // let timestamp = request
-    //     .headers()
-    //     .get("X-Timestamp")
-    //     .and_then(|t| t.to_str().ok())
-    //     .and_then(|t| t.parse::<u64>().ok())
-    //     .unwrap();
-
-    // println!("Timestamp: {}", timestamp);
-
-    // let now = SystemTime::now()
-    //     .duration_since(UNIX_EPOCH)
-    //     .unwrap()
-    //     .as_secs();
-
-    // if now - timestamp > 300 {
-    //     return Ok(http::Response::builder()
-    //         .status(http::StatusCode::REQUEST_TIMEOUT)
-    //         .body(Body::empty())?);
-    // }
-
-    // let signature = request
-    //     .headers()
-    //     .get("X-Signature")
-    //     .ok_or(StatusCode::UNAUTHORIZED)
-    //     .unwrap()
-    //     .to_str()
-    //     .map_err(|_| StatusCode::BAD_REQUEST)
-    //     .unwrap();
-
-    // let message = request
-    //     .headers()
-    //     .get("X-Message")
-    //     .ok_or(StatusCode::UNAUTHORIZED)
-    //     .unwrap()
-    //     .to_str()
-    //     .map_err(|_| StatusCode::BAD_REQUEST)
-    //     .unwrap();
-
-    // let payment_data = request
-    //     .headers()
-    //     .get("X-Payment")
-    //     .ok_or(StatusCode::UNAUTHORIZED)
-    //     .unwrap()
-    //     .to_str()
-    //     .map_err(|_| StatusCode::BAD_REQUEST)
-    //     .unwrap();
-
-    // // parse the data
-
-    // let signature = hex::decode(signature.trim_start_matches("0x"))
-    //     .map_err(|_| {
-    //         println!("Failed: Signature decode");
-    //         StatusCode::BAD_REQUEST
-    //     })
-    //     .and_then(|bytes| {
-    //         PrimitiveSignature::try_from(bytes.as_slice()).map_err(|_| {
-    //             println!("Failed: Signature conversion");
-    //             StatusCode::BAD_REQUEST
-    //         })
-    //     })
-    //     .unwrap();
-
-    // let message = hex::decode(message)
-    //     .map_err(|_| {
-    //         println!("Failed: Message decode");
-    //         StatusCode::BAD_REQUEST
-    //     })
-    //     .unwrap();
-
-    // let payment_channel: PaymentChannel = serde_json::from_str(payment_data)
-    //     .map_err(|e| {
-    //         println!("Failed: Payment data decode - Error {}", e);
-    //         StatusCode::BAD_REQUEST
-    //     })
-    //     .unwrap();
-
-    // // Convert body_bytes into a `Bytes` object or process as needed
-    // // TODO: Implement this
-    // let mut _body = request.into_body();
-    // let body_bytes = Bytes::from("0x");
-
-    // prepare a signed request
-    // let signed_request = SignedRequest {
-    //     message,
-    //     signature,
-    //     payment_channel,
-    //     payment_amount,
-    //     body_bytes: body_bytes.to_vec(),
-    // };
-    let axum_request: axum::http::Request<axum::body::Body> = request.into();
-
-    let parsed_response = parse_headers_axum(axum_request, payment_amount).await;
-
-    let (signed_request, parts) = match parsed_response {
-        Ok(s) => s,
+    let updated_channel = match parse_headers(req.into(), body_bytes.to_vec(), payment_amount).await
+    {
+        Ok((signed_request, _parts)) => {
+            let _body_bytes = signed_request.body_bytes.clone();
+            match verify_and_update_channel(&state, signed_request).await {
+                Ok(updated_channel) => updated_channel,
+                Err(e) => {
+                    return Ok(http::Response::builder()
+                        .status(e)
+                        .body(Body::empty())
+                        .unwrap())
+                }
+            }
+        }
         Err(e) => {
-            return Ok(http::Response::builder().status(e).body(Body::empty())?);
+            return Ok(http::Response::builder()
+                .status(e)
+                .body(Body::empty())
+                .unwrap())
         }
     };
 
-    // verify and update the channel
-    let _updated_channel = verify_and_update_channel(&state, signed_request)
-        .await
-        .unwrap();
+    let ai = match env.ai("Ai") {
+        Ok(ai) => ai,
+        Err(e) => {
+            return Ok(http::Response::builder()
+                .status(StatusCode::INTERNAL_SERVER_ERROR)
+                .body(Body::empty())
+                .unwrap())
+        }
+    };
 
-    Ok(http::Response::builder()
-        .status(http::StatusCode::OK)
-        .body(Body::empty())?)
+    #[derive(serde::Serialize)]
+    struct Input {
+        prompt: String,
+    }
+
+    #[derive(serde::Deserialize)]
+    struct Output {
+        response: String,
+    }
+
+    let res: std::result::Result<Output, Error> = ai
+        .run::<Input, Output>(
+            "@cf/meta/llama-3.1-8b-instruct",
+            Input {
+                prompt: String::from("What is the origin of the phrase Hello, World"),
+            },
+        )
+        .await;
+
+    match res {
+        Ok(res) => {
+            let mut response = http::Response::builder()
+                .status(200)
+                .body(Body::empty())
+                .unwrap();
+            // modify_headers_axum(response, &updated_channel)
+            let headers_mut = response.headers_mut();
+
+            // convert the payment channel json into string and then return that in the header
+            headers_mut.insert(
+                "X-Payment",
+                serde_json::to_string(&updated_channel)
+                    .unwrap()
+                    .parse()
+                    .unwrap(),
+            );
+            let now = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_secs();
+
+            headers_mut.insert("X-Timestamp", now.to_string().parse().unwrap());
+
+            return Ok(response);
+        }
+        Err(e) => {
+            return Ok(http::Response::builder()
+                .status(StatusCode::INTERNAL_SERVER_ERROR)
+                .body(Body::empty())
+                .unwrap())
+        }
+    }
 }

@@ -2263,10 +2263,12 @@ version = "0.4.0"
 dependencies = [
  "alloy 0.6.4",
  "axum",
+ "bytes",
  "console_error_panic_hook",
  "console_log",
- "futures",
  "getrandom",
+ "http",
+ "http-body",
  "js-sys",
  "serde",
  "serde_json",

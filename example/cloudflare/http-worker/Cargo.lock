@@ -1563,8 +1563,10 @@ dependencies = [
  "alloy 0.8.3",
  "axum",
  "console_error_panic_hook",
+ "console_log",
  "http",
  "pipegate",
+ "serde",
  "serde_json",
  "worker",
  "worker-macros",
@@ -2259,14 +2261,16 @@ checksum = "8b870d8c151b6f2fb93e84a13146138f05d02ed11c7e7c54f8826aaaf7c9f184"
 
 [[package]]
 name = "pipegate"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "alloy 0.6.4",
  "axum",
+ "bytes",
  "console_error_panic_hook",
  "console_log",
- "futures",
  "getrandom",
+ "http",
+ "http-body",
  "js-sys",
  "serde",
  "serde_json",

@@ -28,6 +28,7 @@ pub struct PipegateMiddlewareLayer {
     payment_amount: U256,
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 impl PipegateMiddlewareLayer {
     pub fn new(state: ChannelState, payment_amount: U256) -> Self {
         Self {
@@ -37,6 +38,7 @@ impl PipegateMiddlewareLayer {
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 impl<S> Layer<S> for PipegateMiddlewareLayer {
     type Service = PipegateMiddleware<S>;
 
@@ -57,6 +59,7 @@ pub struct PipegateMiddleware<S> {
     payment_amount: U256,
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 impl<S> Service<Request<Body>> for PipegateMiddleware<S>
 where
     S: Service<Request<Body>, Response = Response> + Clone + Send + 'static,
@@ -68,7 +71,7 @@ where
     // #[cfg(target_arch = "wasm32")]
     // type Future = Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>>>>;
 
-    #[cfg(not(target_arch = "wasm32"))]
+    // #[cfg(not(target_arch = "wasm32"))]
     type Future = Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send>>;
 
     fn poll_ready(
@@ -83,6 +86,7 @@ where
         let payment_amount = self.payment_amount;
         let mut inner = self.inner.clone();
 
+        // #[cfg(not(target_arch = "wasm32"))]
         Box::pin(async move {
             match auth_middleware(state, payment_amount, req).await {
                 Ok((request, payment_channel, state)) => {

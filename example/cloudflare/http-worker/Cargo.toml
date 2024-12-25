@@ -18,8 +18,10 @@ crate-type = ["cdylib"]
 worker = { version="0.5.0", features=['http'] }
 worker-macros = { version="0.5.0", features=['http'] }
 console_error_panic_hook = { version = "0.1.1" }
+console_log = "1.0.0"
 http = "1.1"
 pipegate = { path="../../../core/server"}
 alloy = {version = "0.8.0", default-features = false}
 serde_json = "1.0.133"
 axum = {version = "0.7.8", default-features = false }
+serde = "1.0.216"

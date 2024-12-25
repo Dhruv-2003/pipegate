@@ -33,11 +33,11 @@ fn router(env: Env) -> Router {
     Router::new()
         .route("/", get(root))
         .route("/generate", post(generate))
-        .with_state(app_state)
-    // .layer(middleware::from_fn_with_state(
-    //     app_state,
-    //     auth_middleware::<Body>,
-    // ))
+        .with_state(app_state.clone())
+        .layer(middleware::from_fn_with_state(
+            app_state,
+            auth_middleware::<Body>,
+        ))
 }
 
 #[event(fetch)]
@@ -54,31 +54,31 @@ pub async fn root() -> &'static str {
     "Hello Axum!"
 }
 
-// async fn auth_middleware<B>(
-//     State(state): State<AppState>,
-//     req: Request<Body>,
-//     next: Next,
-// ) -> Response<Body> {
-//     let payment_amount = U256::from(1000);
+async fn auth_middleware<B>(
+    State(state): State<AppState>,
+    req: Request<Body>,
+    next: Next,
+) -> Response<Body> {
+    let payment_amount = U256::from(1000);
 
-//     let state = state.channel_state;
-//     // Parse headers
-//     match parse_headers_axum(req, payment_amount).await {
-//         Ok((signed_request, parts)) => {
-//             let body_bytes = signed_request.body_bytes.clone();
-//             match verify_and_update_channel(&state, signed_request).await {
-//                 Ok(updated_channel) => {
-//                     // Reconstruct request with original body
-//                     let req = Request::from_parts(parts, Body::from(body_bytes));
-//                     let response = next.run(req).await;
-//                     modify_headers_axum(response, &updated_channel)
-//                 }
-//                 Err(e) => Response::builder().status(e).body(Body::empty()).unwrap(),
-//             }
-//         }
-//         Err(e) => Response::builder().status(e).body(Body::empty()).unwrap(),
-//     }
-// }
+    let state = state.channel_state;
+    // Parse headers
+    match parse_headers_axum(req, payment_amount).await {
+        Ok((signed_request, parts)) => {
+            let body_bytes = signed_request.body_bytes.clone();
+            match verify_and_update_channel(&state, signed_request).await {
+                Ok(updated_channel) => {
+                    // Reconstruct request with original body
+                    let req = Request::from_parts(parts, Body::from(body_bytes));
+                    let response = next.run(req).await;
+                    modify_headers_axum(response, &updated_channel)
+                }
+                Err(e) => Response::builder().status(e).body(Body::empty()).unwrap(),
+            }
+        }
+        Err(e) => Response::builder().status(e).body(Body::empty()).unwrap(),
+    }
+}
 
 async fn generate(State(state): State<AppState>, req: Request<Body>) -> Response<Body> {
     let payment_amount = U256::from(1000);
@@ -110,8 +110,13 @@ async fn generate(State(state): State<AppState>, req: Request<Body>) -> Response
         prompt: String,
     }
 
-    let res: std::result::Result<String, Error> = ai
-        .run::<Input, String>(
+    #[derive(serde::Deserialize)]
+    struct Output {
+        response: String,
+    }
+
+    let res: std::result::Result<Output, Error> = ai
+        .run::<Input, Output>(
             "@cf/meta/llama-3.1-8b-instruct",
             Input {
                 prompt: String::from("What is the origin of the phrase Hello, World"),
@@ -123,7 +128,7 @@ async fn generate(State(state): State<AppState>, req: Request<Body>) -> Response
         Ok(res) => {
             let response = Response::builder()
                 .status(200)
-                .body(Body::from(res))
+                .body(Body::from(res.response))
                 .unwrap();
             modify_headers_axum(response, &updated_channel)
         }
