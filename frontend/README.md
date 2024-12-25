@@ -1,5 +1,7 @@
 ## Frontend interface code
 
+**NOTE: This is a yet to be implemented.**
+
 Interface for :
 
 - Creating a payment channel

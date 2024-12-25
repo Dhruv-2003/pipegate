@@ -118,6 +118,30 @@ const response = await fetch("https://api.example.com/endpoint", {
 });
 ```
 
+### WASM exported functions - Verifiers & Extra
+
+`PaymentChannelVerifier` can be used as such:
+
+```typescript
+await init();
+
+const rpc_url = "https://base-sepolia-rpc.publicnode.com";
+
+const verifier = new PaymentChannelVerifier(rpc_url);
+
+const updatedChannel = await verifier.verify_request(
+  data.message,
+  data.signature,
+  data.paymentChannelJSON,
+  data.paymentAmount,
+  data.bodyBytes
+);
+
+console.log(updatedChannel);
+```
+
+Test script can be found in `tests/wasm.ts`
+
 ## Best Practices
 
 1. **Channel Management**
