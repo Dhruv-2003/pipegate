@@ -26,7 +26,7 @@ async function testSDKInterceptors() {
     );
 
     const axiosInstance = axios.create({
-      baseURL: "http://localhost:3000",
+      baseURL: "http://localhost:8787",
       timeout: 5000,
       headers: {
         Accept: "application/json",
@@ -83,6 +83,7 @@ async function testSDKInterceptors() {
       validateStatus: (status) => true, // Accept any status code
     });
   } catch (error) {
+    console.log(error);
     if (axios.isAxiosError(error)) {
       console.error("\nRequest Failed:");
       console.log("Status:", error.response?.status);

@@ -1,16 +1,14 @@
 use std::{env, str::FromStr};
 
-use alloy::{
-    primitives::{Address, Bytes, U256},
-    signers::Signature,
-};
+use alloy::primitives::{Address, Bytes, U256};
 use axum::{routing::get, Router};
+
 use pipegate::{
     channel::{close_channel, ChannelState},
-    middleware::auth_middleware,
     types::PaymentChannel,
 };
 
+#[cfg(not(target_arch = "wasm32"))]
 #[tokio::main]
 pub async fn main() {
     // a mock server implementation using axum
@@ -18,6 +16,7 @@ pub async fn main() {
 
     // add middleware we created for protecting routes
     // Create a new instance of our state
+    use pipegate::middleware::PipegateMiddlewareLayer;
     let rpc_url: alloy::transports::http::reqwest::Url =
         "https://base-sepolia-rpc.publicnode.com".parse().unwrap();
 
@@ -29,11 +28,10 @@ pub async fn main() {
 
     let app = Router::new()
         // `GET /` goes to `root`
-        .route("/", get(root))
-        .layer(axum::middleware::from_fn(move |req, next| {
-            let state = state.clone();
-            auth_middleware(state, payment_amount, req, next)
-        }));
+        .route(
+            "/",
+            get(root).route_layer(PipegateMiddlewareLayer::new(state.clone(), payment_amount)),
+        );
 
     // run our server on localhost:3000
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
@@ -42,8 +40,11 @@ pub async fn main() {
     println!("Listening on: http://localhost:3000");
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 pub async fn close_and_withdraw(_state: &ChannelState) {
     // let payment_channel = state.get_channel(U256::from(1)).await.unwrap();
+
+    use alloy::primitives::PrimitiveSignature;
 
     let payment_channel = PaymentChannel {
         address: Address::from_str("0x4cf93d3b7cd9d50ecfba2082d92534e578fe46f6").unwrap(),
@@ -55,7 +56,7 @@ pub async fn close_and_withdraw(_state: &ChannelState) {
         channel_id: U256::from(1),
     };
 
-    let signature : Signature = Signature::from_str("0x9dbbaab8fb419ad1fc50d2d7d0c037f6621d8fc22701b92c503d80e262081d2a11343599127d064b9ca054cd0ae29c7025394f658b47b4c5c102bfd631d7bcb91b").unwrap();
+    let signature  = PrimitiveSignature::from_str("0x9dbbaab8fb419ad1fc50d2d7d0c037f6621d8fc22701b92c503d80e262081d2a11343599127d064b9ca054cd0ae29c7025394f658b47b4c5c102bfd631d7bcb91b").unwrap();
 
     let rpc_url: alloy::transports::http::reqwest::Url =
         "https://base-sepolia-rpc.publicnode.com".parse().unwrap();

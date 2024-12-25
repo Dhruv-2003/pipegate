@@ -269,12 +269,12 @@ export class ClientInterceptor {
 
           return config;
         } catch (err) {
-          if (axios.isAxiosError(err)) {
-            // console.error(formatAxiosError(err));
-            console.error("Error -kushagra2:");
-          } else {
-            console.error("Error -kushagra2:");
-          }
+          // if (axios.isAxiosError(err)) {
+          //   // console.error(formatAxiosError(err));
+          //   console.error("Error -kushagra2:");
+          // } else {
+          //   console.error("Error -kushagra2:");
+          // }
           throw err;
         }
       },
@@ -316,13 +316,13 @@ export class ClientInterceptor {
 
           return response;
         } catch (err) {
-          if (axios.isAxiosError(err)) {
-            // console.error(formatAxiosError(err));
-            console.error("Error -kushagra3:");
-          } else {
-            // console.error("Error:", err.message);
-            console.error("Error -kushagra3:");
-          }
+          // if (axios.isAxiosError(err)) {
+          //   // console.error(formatAxiosError(err));
+          //   console.error("Error -kushagra3:");
+          // } else {
+          //   // console.error("Error:", err.message);
+          //   console.error("Error -kushagra3:");
+          // }
           throw err;
         }
       },

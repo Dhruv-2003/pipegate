@@ -1,0 +1,9 @@
+[package]
+name = "s3-proxy-router"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+pipegate = { path="../../../core/server"}
+tokio = { version = "1.41.1" }
+axum = "0.7.8"

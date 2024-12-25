@@ -10,12 +10,16 @@ use std::{
 use alloy::{
     contract::Error,
     network::EthereumWallet,
-    primitives::{Address, FixedBytes, U256},
+    primitives::{Address, FixedBytes, PrimitiveSignature, U256},
     providers::ProviderBuilder,
-    signers::{local::PrivateKeySigner, Signature},
+    signers::local::PrivateKeySigner,
     sol,
 };
 use alloy::{primitives::Bytes, transports::http::reqwest::Url};
+
+#[cfg(target_arch = "wasm32")]
+use js_sys::Date;
+
 use tokio::sync::RwLock;
 
 use crate::{error::AuthError, types::PaymentChannel};
@@ -53,7 +57,7 @@ impl ChannelState {
     pub async fn verify_signature(
         &self,
         payment_channel: &PaymentChannel,
-        signature: &Signature,
+        signature: &PrimitiveSignature,
         message: &[u8],
     ) -> Result<(), AuthError> {
         // self.network.verify_signature(signature, message).await
@@ -87,7 +91,7 @@ impl ChannelState {
             .getBalance()
             .call()
             .await
-            .unwrap()
+            .map_err(|e| AuthError::ContractError(e.to_string()))?
             ._0;
 
         let balance = U256::from(balance_value);
@@ -103,7 +107,7 @@ impl ChannelState {
             .expiration()
             .call()
             .await
-            .unwrap()
+            .map_err(|e| AuthError::ContractError(e.to_string()))?
             ._0;
 
         let expiration = U256::from(expiration_value);
@@ -119,7 +123,7 @@ impl ChannelState {
             .channelId()
             .call()
             .await
-            .unwrap()
+            .map_err(|e| AuthError::ContractError(e.to_string()))?
             ._0;
         let channel_id = U256::from(channel_id_value);
 
@@ -130,7 +134,12 @@ impl ChannelState {
         }
 
         // Verify sender and recipient from the contract
-        let sender_value = payment_channel_contract.sender().call().await.unwrap()._0;
+        let sender_value = payment_channel_contract
+            .sender()
+            .call()
+            .await
+            .map_err(|e| AuthError::ContractError(e.to_string()))?
+            ._0;
 
         if payment_channel.sender != sender_value {
             return Err(AuthError::InvalidChannel);
@@ -140,7 +149,7 @@ impl ChannelState {
             .recipient()
             .call()
             .await
-            .unwrap()
+            .map_err(|e| AuthError::ContractError(e.to_string()))?
             ._0;
 
         if payment_channel.recipient != recipient_value {
@@ -157,10 +166,15 @@ impl ChannelState {
         const WINDOW: u64 = 60; // Every 60 seconds
 
         let mut rate_limits = self.rate_limiter.write().await;
+
+        #[cfg(not(target_arch = "wasm32"))]
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_secs();
+
+        #[cfg(target_arch = "wasm32")]
+        let now = (Date::now() as u64) / 1000;
 
         let (count, last_reset) = rate_limits.entry(sender).or_insert((0, SystemTime::now()));
 
@@ -184,7 +198,7 @@ pub async fn close_channel(
     rpc_url: Url,
     private_key: &str,
     payment_channel: &PaymentChannel,
-    signature: &Signature,
+    signature: &PrimitiveSignature,
     raw_body: Bytes,
 ) -> Result<FixedBytes<32>, Error> {
     let signer: PrivateKeySigner = private_key.parse().expect("Invalid private key");

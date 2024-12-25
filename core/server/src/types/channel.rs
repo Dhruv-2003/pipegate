@@ -1,7 +1,4 @@
-use alloy::{
-    primitives::{Address, U256},
-    signers::Signature,
-};
+use alloy::primitives::{Address, PrimitiveSignature, U256};
 use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, DisplayFromStr};
 
@@ -28,7 +25,7 @@ pub struct PaymentChannel {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SignedRequest {
     pub message: Vec<u8>,
-    pub signature: Signature,
+    pub signature: PrimitiveSignature,
     pub payment_channel: PaymentChannel,
     pub payment_amount: U256,
     pub body_bytes: Vec<u8>,
