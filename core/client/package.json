@@ -1,6 +1,6 @@
 {
   "name": "pipegate-sdk",
-  "version": "0.5.0",
+  "version": "0.4.1",
   "description": "A TypeScript client-side payment authentication SDK for stablecoins used with axios",
   "main": "dist/index.js",
   "module": "dist/index.js",
