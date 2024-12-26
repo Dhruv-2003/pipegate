@@ -183,7 +183,7 @@ export class ClientInterceptor {
    * @param rawBody Body of the request
    * @returns SignedRequest
    */
-  async signRequest(
+  async signPaymentChannelRequest(
     paymentChannel: PaymentChannelResponse,
     rawBody: any
   ): Promise<SignedRequest> {
@@ -241,10 +241,44 @@ export class ClientInterceptor {
   }
 
   /**
+   * signs a request with channel details
+   * @param txHash Transaction Hash
+   * @returns SignedRequest
+   */
+  async signOneTimePaymentRequest(
+    txHash: `0x${string}`
+  ): Promise<SignedRequest> {
+    try {
+      // Concatenate all parts
+      const encodedMessage = keccak256(encodePacked(["bytes"], [txHash]));
+
+      console.log("\nMessage Components:");
+      console.log("Tx Hash:", txHash);
+      console.log("Final Message:", encodedMessage);
+
+      // @ts-ignore
+      const signature = await this.account?.signMessage({
+        message: { raw: encodedMessage },
+      });
+
+      console.log("Signature:", signature);
+
+      return {
+        message: encodedMessage,
+        signature,
+        timestamp: Math.floor(Date.now() / 1000).toString(),
+      };
+    } catch (err) {
+      console.error("Sign Request Error:", err);
+      throw err;
+    }
+  }
+
+  /**
    * creates an interceptor for HTTP clients (axios, fetch)
    * @param channelId
    */
-  createRequestInterceptor(channelId: string) {
+  createPaymentChannelRequestInterceptor(channelId: string) {
     return {
       request: async (config: InternalAxiosRequestConfig) => {
         try {
@@ -253,7 +287,7 @@ export class ClientInterceptor {
             throw new Error(`No payment channel found for ID: ${channelId}`);
           }
 
-          const signedRequest = await this.signRequest(
+          const signedRequest = await this.signPaymentChannelRequest(
             channelState,
             config.data
           );
@@ -282,9 +316,40 @@ export class ClientInterceptor {
   }
 
   /**
+   * creates a one time payment request interceptor for HTTP clients (axios, fetch)
+   * @param txHash
+   */
+  createOneTimePaymentRequestInterceptor(txHash: `0x${string}`) {
+    return {
+      request: async (config: InternalAxiosRequestConfig) => {
+        try {
+          const signedRequest = await this.signOneTimePaymentRequest(txHash);
+
+          console.log("Adding headers to request:");
+          config.headers = new axios.AxiosHeaders({
+            ...config.headers,
+            "X-Signature": signedRequest.signature,
+            "X-Transaction": txHash,
+          });
+
+          return config;
+        } catch (err) {
+          // if (axios.isAxiosError(err)) {
+          //   // console.error(formatAxiosError(err));
+          //   console.error("Error -kushagra2:");
+          // } else {
+          //   console.error("Error -kushagra2:");
+          // }
+          throw err;
+        }
+      },
+    };
+  }
+
+  /**
    * creates an response interceptor and extracts payment channel state
    */
-  createResponseInterceptor() {
+  createPaymentChannelResponseInterceptor() {
     return {
       response: (response: any) => {
         console.log("Response Status:", response.status);

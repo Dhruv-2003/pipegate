@@ -36,13 +36,13 @@ async function testSDKInterceptors() {
 
     // Attach interceptors from SDK
     axiosInstance.interceptors.request.use(
-      sdk.createRequestInterceptor(
+      sdk.createPaymentChannelRequestInterceptor(
         mockCreateChannelResponse.channelId.toString()
       ).request
     );
 
     axiosInstance.interceptors.response.use(
-      sdk.createResponseInterceptor().response
+      sdk.createPaymentChannelResponseInterceptor().response
     );
 
     console.log("\nSending request to the root route...");
