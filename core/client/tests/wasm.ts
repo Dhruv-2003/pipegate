@@ -20,6 +20,7 @@ const dummyData = {
     "0x4de2d31f6bd2aab04725c3e454c2d4b6fc5485c920e66465d55894c25d7c9688005571179ee04c1570c5740712ca6e7a428da04c91270cad1aa9671dc17ba28b1c",
   paymentChannelJSON: JSON.stringify(dummyPaymentChannel),
   paymentAmount: BigInt(1000),
+  timestamp: BigInt(1735387288),
   bodyBytes: new Uint8Array(0),
 };
 
@@ -43,6 +44,7 @@ async function main() {
       dummyData.signature,
       dummyData.paymentChannelJSON,
       dummyData.paymentAmount,
+      dummyData.timestamp,
       dummyData.bodyBytes
     );
 
