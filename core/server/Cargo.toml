@@ -1,6 +1,6 @@
 [package]
 name = "pipegate"
-version = "0.4.0"
+version = "0.4.1"
 edition = "2021"
 description = "A payment authentication middleware with stablecoins"
 license = "MIT"
@@ -33,6 +33,7 @@ crate-type = ["cdylib", "rlib"]
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 tokio = { version = "1.41.1", features = ["sync", "macros", "net", "rt-multi-thread"] }
 axum = "0.7.8"
+axum-macros = { version = "0.4.2" }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 tokio = { version = "1.41.1", features = ["sync"] }

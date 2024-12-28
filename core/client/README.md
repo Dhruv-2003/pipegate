@@ -51,7 +51,7 @@ const channel = await pipeGate.createPaymentChannel(channelParams);
 await pipeGate.addNewChannel(channel.channelId, channel);
 ```
 
-### Making API Calls
+### Making API Calls with Payment Channel method
 
 #### Using with Axios
 
@@ -66,11 +66,13 @@ const api = axios.create({
 
 // Add request interceptor for automatic signing
 api.interceptors.request.use(
-  pipeGate.createRequestInterceptor(channelId).request
+  pipeGate.createPaymentChannelRequestInterceptor(channelId).request
 );
 
 // Add response interceptor for state management
-api.interceptors.response.use(pipeGate.createResponseInterceptor().response);
+api.interceptors.response.use(
+  pipeGate.createPaymentChannelResponseInterceptor().response
+);
 
 // Make API calls as normal
 const response = await api.get("/endpoint");
@@ -90,6 +92,28 @@ console.log("Channel Status:", channelState?.status);
 ```typescript
 // Get current channel state
 await pipeGate.addNewChannel(channel.channelId, channel);
+```
+
+### Making API Calls with One time Payment method
+
+#### Using with Axios
+
+Create an Axios instance with PipeGate interceptors and the txHash of the transaction that was used to pay for the request:
+
+```typescript
+import axios from "axios";
+
+const api = axios.create({
+  baseURL: "https://api.example.com",
+});
+
+// Add request interceptor for automatic signing
+api.interceptors.request.use(
+  pipeGate.createOneTimePaymentRequestInterceptor(txHash).request
+);
+
+// Make API calls as normal
+const response = await api.get("/endpoint");
 ```
 
 ## Advanced Usage
@@ -220,7 +244,7 @@ try {
 
 ## Examples
 
-### Complete API Integration Example
+### Complete API Integration Example with recurring Payment Channel method
 
 ```typescript
 import { ClientInterceptor } from "pipegate-sdk";
@@ -251,6 +275,38 @@ async function setupApiClient() {
     pipeGate.createRequestInterceptor(channel.channelId).request
   );
   api.interceptors.response.use(pipeGate.createResponseInterceptor().response);
+
+  return api;
+}
+
+// Usage
+const api = await setupApiClient();
+const data = await api.get("/endpoint");
+```
+
+### Complete API Integration Example with One time Payment method
+
+```typescript
+import { ClientInterceptor } from "pipegate-sdk";
+import axios from "axios";
+
+async function setupApiClient() {
+  // Initialize SDK
+  const pipeGate = new ClientInterceptor();
+  await pipeGate.initialize();
+
+  // Define the txHash
+  const txHash = "0x123...";
+
+  // Setup API client
+  const api = axios.create({
+    baseURL: "https://api.example.com",
+  });
+
+  // Add interceptors
+  api.interceptors.request.use(
+    pipeGate.createOneTimePaymentRequestInterceptor(txHash).request
+  );
 
   return api;
 }

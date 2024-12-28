@@ -11,12 +11,19 @@ use pipegate::{
 #[cfg(not(target_arch = "wasm32"))]
 #[tokio::main]
 pub async fn main() {
+    use axum::middleware;
+    use pipegate::{
+        middleware::{
+            onetime_payment_auth_middleware, OneTimePaymentMiddlewareState, PipegateMiddlewareLayer,
+        },
+        types::OneTimePaymentConfig,
+    };
+
     // a mock server implementation using axum
     // build our application with a route
 
     // add middleware we created for protecting routes
     // Create a new instance of our state
-    use pipegate::middleware::PipegateMiddlewareLayer;
     let rpc_url: alloy::transports::http::reqwest::Url =
         "https://base-sepolia-rpc.publicnode.com".parse().unwrap();
 
@@ -26,11 +33,30 @@ pub async fn main() {
 
     let state = ChannelState::new(rpc_url.clone());
 
+    let onetime_payment_config = OneTimePaymentConfig {
+        recipient: Address::from_str("0x62c43323447899acb61c18181e34168903e033bf").unwrap(),
+        token_address: Address::from_str("0x036CbD53842c5426634e7929541eC2318f3dCF7e").unwrap(),
+        amount: U256::from(1000000), // 1 USDC
+        period: U256::from(0),
+        rpc_url: rpc_url.to_string(),
+    };
+
+    let onetime_state = OneTimePaymentMiddlewareState {
+        config: onetime_payment_config,
+    };
+
     let app = Router::new()
         // `GET /` goes to `root`
         .route(
             "/",
             get(root).route_layer(PipegateMiddlewareLayer::new(state.clone(), payment_amount)),
+        )
+        .route(
+            "/one-time",
+            get(one_time).route_layer(middleware::from_fn_with_state(
+                onetime_state,
+                onetime_payment_auth_middleware,
+            )),
         );
 
     // run our server on localhost:3000
@@ -38,6 +64,14 @@ pub async fn main() {
     axum::serve(listener, app).await.unwrap();
 
     println!("Listening on: http://localhost:3000");
+}
+
+async fn root() -> &'static str {
+    "Hello, World!"
+}
+
+async fn one_time() -> &'static str {
+    "One Time Payment Authenticated"
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -74,8 +108,4 @@ pub async fn close_and_withdraw(_state: &ChannelState) {
     );
 
     println!("Transaction Hash: {:?}", tx_hash.await);
-}
-
-async fn root() -> &'static str {
-    "Hello, World!"
 }

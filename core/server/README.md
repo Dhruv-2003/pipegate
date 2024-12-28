@@ -20,7 +20,7 @@ alloy = { version = "0.1", features = ["full"] }
 
 ## Basic Setup
 
-### Simple Server Implementation
+### Simple Server Implementation for Payment Channel middleware
 
 ```rust
 use alloy::{primitives::U256};
@@ -54,6 +54,49 @@ async fn root() -> &'static str {
 }
 ```
 
+### Simple Server Implementation for One Time payment middleware
+
+```rust
+use alloy::{primitives::{U256,Address}};
+use axum::{routing::get, Router};
+use pipegate::{middleware::{onetime_payment_auth_middleware OneTimePaymentMiddlewareState},types::OneTimePaymentConfig,};
+
+#[tokio::main]
+async fn main() {
+    // Configure RPC endpoint
+    let rpc_url: alloy::transports::http::reqwest::Url =
+        "https://base-sepolia-rpc.publicnode.com".parse().unwrap();
+
+    let onetime_payment_config = OneTimePaymentConfig {
+        recipient: Address::from_str("0x62c43323447899acb61c18181e34168903e033bf").unwrap(),
+        token_address: Address::from_str("0x036CbD53842c5426634e7929541eC2318f3dCF7e").unwrap(),
+        amount: U256::from(1000000), // 1 USDC
+        period: U256::from(0),
+        rpc_url: rpc_url.to_string(),
+    };
+
+    let onetime_state = OneTimePaymentMiddlewareState {
+        config: onetime_payment_config,
+    };
+
+    // Create router with middleware
+    let app = Router::new()
+        .route("/", get(root))
+        .layer(middleware::from_fn_with_state(
+                onetime_state,
+                onetime_payment_auth_middleware,
+            ));
+
+    // Start server
+    let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
+    axum::serve(listener, app).await.unwrap();
+}
+
+async fn root() -> &'static str {
+    "Hello, World!"
+}
+```
+
 ## Closing channel & withdraw
 
 ```rust
@@ -62,11 +105,10 @@ use pipegate::{
     types::PaymentChannel,
 };
 pub async fn close_and_withdraw(_state: &ChannelState) {
-
     // Read the payment channel state
     // let payment_channel = state.get_channel(U256::from(1)).await.unwrap();
     //or
-    // Define the payment channe
+    // Define the payment channel
     let payment_channel = PaymentChannel {
         address: Address::from_str("0x4cf93d3b7cd9d50ecfba2082d92534e578fe46f6").unwrap(),
         sender: Address::from_str("0x898d0dbd5850e086e6c09d2c83a26bb5f1ff8c33").unwrap(),
@@ -134,16 +176,14 @@ async fn verify_onetime_payment_tx() {
 
 ## Helper functions
 
-1. [Parse headers for payment channel with axum](https://github.com/Dhruv-2003/pipegate/blob/main/core/server/src/utils/headers.rs#parse_headers_axum): `parse_headers_axum` - Parsing and extracting signed request with payment channel from request headers in axum.
+1. [Parse headers for payment channel with axum](https://github.com/Dhruv-2003/pipegate/blob/main/core/server/src/utils/headers.rs#parse_headers): `parse_headers` - Parsing and extracting signed request with payment channel from request headers
 
 2. [Modify headers for updated channel with axum](https://github.com/Dhruv-2003/pipegate/blob/main/core/server/src/utils/headers.rs#modify_headers_axum): `modify_headers_axum` - Modifying response headers with updated channel state in axum.
 
-3. [Parse headers for payment channel with HTTP](https://github.com/Dhruv-2003/pipegate/blob/main/core/server/src/utils/headers.rs#parse_headers): `parse_headers` - Parsing and extracting signed request with payment channel from HTTP headers.
-
-4. [Modify headers for updated channel with HTTP](https://github.com/Dhruv-2003/pipegate/blob/main/core/server/src/utils/headers.rs#modify_headers):
+3. [Modify headers for updated channel with HTTP](https://github.com/Dhruv-2003/pipegate/blob/main/core/server/src/utils/headers.rs#modify_headers):
    `modify_headers` - Modifying response headers with updated channel state in HTTP.
 
-5. [Parse headers for onetime payment tx](https://github.com/Dhruv-2003/pipegate/blob/main/core/server/src/utils/headers.rs#parse_tx_headers_axum): `parse_tx_headers_axum` - Parsing and extracting signed request with onetime payment tx from request headers in axum.
+4. [Parse headers for onetime payment tx](https://github.com/Dhruv-2003/pipegate/blob/main/core/server/src/utils/headers.rs#parse_tx_headers_axum): `parse_tx_headers_axum` - Parsing and extracting signed request with onetime payment tx from request headers
 
 ## Error Handling
 

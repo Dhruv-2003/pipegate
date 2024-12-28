@@ -221,10 +221,11 @@ function passArray8ToWasm0(arg, malloc) {
  * @param {string} signature
  * @param {string} payment_channel_json
  * @param {bigint} payment_amount
+ * @param {bigint} timestamp
  * @param {Uint8Array} body_bytes
  * @returns {Promise<any>}
  */
-export function verify_channel_no_state(rpc_url, current_channel_json, message, signature, payment_channel_json, payment_amount, body_bytes) {
+export function verify_channel_no_state(rpc_url, current_channel_json, message, signature, payment_channel_json, payment_amount, timestamp, body_bytes) {
     const ptr0 = passStringToWasm0(rpc_url, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
     const len0 = WASM_VECTOR_LEN;
     var ptr1 = isLikeNone(current_channel_json) ? 0 : passStringToWasm0(current_channel_json, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
@@ -237,7 +238,7 @@ export function verify_channel_no_state(rpc_url, current_channel_json, message, 
     const len4 = WASM_VECTOR_LEN;
     const ptr5 = passArray8ToWasm0(body_bytes, wasm.__wbindgen_malloc);
     const len5 = WASM_VECTOR_LEN;
-    const ret = wasm.verify_channel_no_state(ptr0, len0, ptr1, len1, ptr2, len2, ptr3, len3, ptr4, len4, payment_amount, ptr5, len5);
+    const ret = wasm.verify_channel_no_state(ptr0, len0, ptr1, len1, ptr2, len2, ptr3, len3, ptr4, len4, payment_amount, timestamp, ptr5, len5);
     return ret;
 }
 
@@ -329,10 +330,11 @@ export class PaymentChannelVerifier {
      * @param {string} signature
      * @param {string} payment_channel_json
      * @param {bigint} payment_amount
+     * @param {bigint} timestamp
      * @param {Uint8Array} body_bytes
      * @returns {Promise<any>}
      */
-    verify_request(message, signature, payment_channel_json, payment_amount, body_bytes) {
+    verify_request(message, signature, payment_channel_json, payment_amount, timestamp, body_bytes) {
         const ptr0 = passStringToWasm0(message, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
         const len0 = WASM_VECTOR_LEN;
         const ptr1 = passStringToWasm0(signature, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
@@ -341,7 +343,7 @@ export class PaymentChannelVerifier {
         const len2 = WASM_VECTOR_LEN;
         const ptr3 = passArray8ToWasm0(body_bytes, wasm.__wbindgen_malloc);
         const len3 = WASM_VECTOR_LEN;
-        const ret = wasm.paymentchannelverifier_verify_request(this.__wbg_ptr, ptr0, len0, ptr1, len1, ptr2, len2, payment_amount, ptr3, len3);
+        const ret = wasm.paymentchannelverifier_verify_request(this.__wbg_ptr, ptr0, len0, ptr1, len1, ptr2, len2, payment_amount, timestamp, ptr3, len3);
         return ret;
     }
 }
