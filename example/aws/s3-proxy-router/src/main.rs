@@ -1,5 +1,3 @@
-use std::{collections::HashMap, str::FromStr, sync::Arc, time::Duration};
-
 use alloy::primitives::{Address, FixedBytes};
 use aws_config::{meta::region::RegionProviderChain, Region};
 use aws_sdk_s3::{presigning::PresigningConfig, Client};
@@ -11,6 +9,9 @@ use axum::{
     routing::{get, post},
     Router,
 };
+use dotenv::dotenv;
+use std::env;
+use std::{collections::HashMap, str::FromStr, sync::Arc, time::Duration};
 
 use pipegate::{
     types::{OneTimePaymentConfig, Url, U256},
@@ -50,8 +51,10 @@ pub async fn main() {
     let state = Arc::new(RwLock::new(HashMap::new()));
 
     let s3_client = setup_s3_client().await;
-    let bucket_name = "s3-demo-pipegate";
-    let object_key = "OnetimePaymentArchitecture.png";
+
+    dotenv().ok();
+    let bucket_name = env::var("S3_BUCKET_NAME").expect("Bucket name not set");
+    let object_key = env::var("S3_OBJECT_KEY").expect("Object key not set");
 
     let aws_local_config = AwsLocalConfig {
         client: s3_client,
