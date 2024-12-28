@@ -3,8 +3,8 @@
 export const memory: WebAssembly.Memory;
 export const __wbg_paymentchannelverifier_free: (a: number, b: number) => void;
 export const paymentchannelverifier_new: (a: number, b: number) => [number, number, number];
-export const paymentchannelverifier_verify_request: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: bigint, i: number, j: number) => any;
-export const verify_channel_no_state: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: bigint, l: number, m: number) => any;
+export const paymentchannelverifier_verify_request: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: bigint, i: bigint, j: number, k: number) => any;
+export const verify_channel_no_state: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: bigint, l: bigint, m: number, n: number) => any;
 export const verify_onetime_payment_tx: (a: number, b: number, c: number, d: number, e: number, f: number) => any;
 export const close_and_withdraw_channel: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number) => any;
 export const initialize_logging: () => void;

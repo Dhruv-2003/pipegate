@@ -48,6 +48,7 @@ impl PaymentChannelVerifier {
         signature: String,
         payment_channel_json: String,
         payment_amount: u64,
+        timestamp: u64,
         body_bytes: Vec<u8>,
     ) -> js_sys::Promise {
         let state = self.inner.clone();
@@ -74,6 +75,7 @@ impl PaymentChannelVerifier {
                 payment_channel,
                 payment_amount,
                 body_bytes,
+                timestamp,
             };
 
             let result = verify_and_update_channel(&state, request)
@@ -97,6 +99,7 @@ pub fn verify_channel_no_state(
     signature: String,
     payment_channel_json: String,
     payment_amount: u64,
+    timestamp: u64,
     body_bytes: Vec<u8>,
 ) -> js_sys::Promise {
     future_to_promise(async move {
@@ -132,6 +135,7 @@ pub fn verify_channel_no_state(
             payment_channel,
             payment_amount,
             body_bytes,
+            timestamp,
         };
 
         let result = verify_channel(rpc_url, request, current_channel)

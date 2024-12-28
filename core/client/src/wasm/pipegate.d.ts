@@ -1,13 +1,13 @@
 /* tslint:disable */
 /* eslint-disable */
 export function initialize_logging(): void;
-export function verify_channel_no_state(rpc_url: string, current_channel_json: string | undefined, message: string, signature: string, payment_channel_json: string, payment_amount: bigint, body_bytes: Uint8Array): Promise<any>;
+export function verify_channel_no_state(rpc_url: string, current_channel_json: string | undefined, message: string, signature: string, payment_channel_json: string, payment_amount: bigint, timestamp: bigint, body_bytes: Uint8Array): Promise<any>;
 export function verify_onetime_payment_tx(ontime_payment_config_json: string, signature: string, tx_hash: string): Promise<any>;
 export function close_and_withdraw_channel(rpc_url: string, private_key: string, signature: string, payment_channel_json: string, body_bytes: Uint8Array): Promise<any>;
 export class PaymentChannelVerifier {
   free(): void;
   constructor(rpc_url: string);
-  verify_request(message: string, signature: string, payment_channel_json: string, payment_amount: bigint, body_bytes: Uint8Array): Promise<any>;
+  verify_request(message: string, signature: string, payment_channel_json: string, payment_amount: bigint, timestamp: bigint, body_bytes: Uint8Array): Promise<any>;
 }
 
 export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembly.Module;
@@ -16,8 +16,8 @@ export interface InitOutput {
   readonly memory: WebAssembly.Memory;
   readonly __wbg_paymentchannelverifier_free: (a: number, b: number) => void;
   readonly paymentchannelverifier_new: (a: number, b: number) => [number, number, number];
-  readonly paymentchannelverifier_verify_request: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: bigint, i: number, j: number) => any;
-  readonly verify_channel_no_state: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: bigint, l: number, m: number) => any;
+  readonly paymentchannelverifier_verify_request: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: bigint, i: bigint, j: number, k: number) => any;
+  readonly verify_channel_no_state: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: bigint, l: bigint, m: number, n: number) => any;
   readonly verify_onetime_payment_tx: (a: number, b: number, c: number, d: number, e: number, f: number) => any;
   readonly close_and_withdraw_channel: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number) => any;
   readonly initialize_logging: () => void;

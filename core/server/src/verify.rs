@@ -35,10 +35,14 @@ pub async fn verify_and_update_channel(
     println!("Original message: 0x{}", hex::encode(&request.message));
 
     // Check timestamp first
+    #[cfg(not(target_arch = "wasm32"))]
     let now = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap()
         .as_secs();
+
+    #[cfg(target_arch = "wasm32")]
+    let now = (Date::now() as u64) / 1000;
 
     if now - request.timestamp > 300 {
         return Err(AuthError::TimestampError);
