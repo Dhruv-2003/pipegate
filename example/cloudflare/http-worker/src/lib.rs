@@ -1,9 +1,7 @@
 use alloy::primitives::{Bytes, U256};
 
 use http::StatusCode;
-use pipegate::{
-    channel::ChannelState, utils::headers::parse_headers, verify::verify_and_update_channel,
-};
+use pipegate::{channel::ChannelState, utils::parse_headers, verify::verify_and_update_channel};
 use std::time::{SystemTime, UNIX_EPOCH};
 use worker::*;
 
@@ -18,11 +16,15 @@ async fn fetch(req: Request, env: Env, _ctx: Context) -> Result<HttpResponse> {
     let state = ChannelState::new("https://base-sepolia-rpc.publicnode.com".parse().unwrap());
     let payment_amount = U256::from(1000);
 
+    // NOTE: This is a dummy value for the body_bytes, it should be ideally be derived from the HTTP request body
     let body_bytes = Bytes::from("0x");
 
+    let request: HttpRequest = req.try_into()?;
+    let (parts, _body) = request.into_parts();
+
     let updated_channel =
-        match parse_headers(req.try_into()?, body_bytes.to_vec(), payment_amount).await {
-            Ok((signed_request, _parts)) => {
+        match parse_headers(&parts.headers, body_bytes.to_vec(), payment_amount).await {
+            Ok(signed_request) => {
                 let _body_bytes = signed_request.body_bytes.clone();
                 match verify_and_update_channel(&state, signed_request).await {
                     Ok(updated_channel) => updated_channel,
@@ -44,7 +46,7 @@ async fn fetch(req: Request, env: Env, _ctx: Context) -> Result<HttpResponse> {
 
     let ai = match env.ai("Ai") {
         Ok(ai) => ai,
-        Err(e) => {
+        Err(_) => {
             return Ok(http::Response::builder()
                 .status(StatusCode::INTERNAL_SERVER_ERROR)
                 .body(Body::empty())
@@ -73,9 +75,14 @@ async fn fetch(req: Request, env: Env, _ctx: Context) -> Result<HttpResponse> {
 
     match res {
         Ok(res) => {
+            let body_stream = Body::from_stream(futures_util::stream::once(async move {
+                Ok::<Vec<u8>, Error>(res.response.to_string().into_bytes())
+            }))
+            .expect("Failed to create body stream");
+
             let mut response = http::Response::builder()
                 .status(200)
-                .body(Body::empty())
+                .body(body_stream)
                 .unwrap();
             // modify_headers_axum(response, &updated_channel)
             let headers_mut = response.headers_mut();
@@ -98,10 +105,15 @@ async fn fetch(req: Request, env: Env, _ctx: Context) -> Result<HttpResponse> {
             return Ok(response);
         }
         Err(e) => {
+            let body_stream = Body::from_stream(futures_util::stream::once(async move {
+                Ok::<Vec<u8>, Error>(e.to_string().into_bytes())
+            }))
+            .expect("Failed to create body stream");
+
             return Ok(http::Response::builder()
                 .status(StatusCode::INTERNAL_SERVER_ERROR)
-                .body(Body::empty())
-                .unwrap())
+                .body(body_stream)
+                .unwrap());
         }
     }
 }

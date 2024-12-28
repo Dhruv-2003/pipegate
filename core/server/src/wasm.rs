@@ -82,6 +82,8 @@ impl PaymentChannelVerifier {
                     JsValue::from_str(&format!("Verification failed: {}", e.to_string()))
                 })?;
 
+            // Rate limiting is not implemented in the wasm version
+
             Ok(JsValue::from_str(&serde_json::to_string(&result).unwrap()))
         })
     }

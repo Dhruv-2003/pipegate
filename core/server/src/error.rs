@@ -5,6 +5,8 @@ use thiserror::Error;
 pub enum AuthError {
     #[error("Missing required headers")]
     MissingHeaders,
+    #[error("Invalid timestamp")]
+    TimestampError,
     #[error("Invalid signature")]
     InvalidSignature,
     #[error("Insufficient payment channel balance")]
@@ -41,6 +43,7 @@ impl From<AuthError> for StatusCode {
     fn from(error: AuthError) -> Self {
         match error {
             AuthError::MissingHeaders => StatusCode::BAD_REQUEST,
+            AuthError::TimestampError => StatusCode::REQUEST_TIMEOUT,
             AuthError::InvalidSignature => StatusCode::UNAUTHORIZED,
             AuthError::InsufficientBalance => StatusCode::PAYMENT_REQUIRED,
             AuthError::Expired => StatusCode::REQUEST_TIMEOUT,

@@ -1,7 +1,8 @@
 import axios from "axios";
 import { ClientInterceptor, CreateChannelResponse } from "../src/index";
 
-async function testSDKInterceptors() {
+async function testPaymentChannelInterceptors() {
+  console.log("=== Payment Channel SDK Interceptor Test ===");
   console.log("\nStarting SDK Interceptor Test...");
 
   try {
@@ -26,7 +27,7 @@ async function testSDKInterceptors() {
     );
 
     const axiosInstance = axios.create({
-      baseURL: "http://localhost:8787",
+      baseURL: "http://localhost:3000",
       timeout: 5000,
       headers: {
         Accept: "application/json",
@@ -99,8 +100,71 @@ async function testSDKInterceptors() {
   }
 }
 
-// Run test
-console.log("=== Payment Channel SDK Interceptor Test ===");
-testSDKInterceptors()
+async function testOnetimePaymentInterceptors() {
+  console.log("=== Onetime Payment SDK Interceptor Test ===");
+  console.log("\nStarting SDK Interceptor Test...");
+
+  try {
+    const sdk = new ClientInterceptor();
+
+    const txHash =
+      "0xe88140d4787b1305c24961dcef2f7f73d583bb862b3cbde4b7eec854f61a0248";
+
+    const axiosInstance = axios.create({
+      baseURL: "http://localhost:3000",
+      timeout: 5000,
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+    });
+
+    // Attach interceptors from SDK
+    axiosInstance.interceptors.request.use(
+      sdk.createOneTimePaymentRequestInterceptor(txHash).request
+    );
+
+    console.log("\nSending request to the root route...");
+
+    // Make a GET request to the root route
+    const response = await axiosInstance.post("/request", {
+      validateStatus: (status) => true, // Accept any status code
+    });
+
+    console.log("\nRequest Details:");
+    console.log("URL:", response.config.url);
+    console.log("Method:", response.config.method);
+    console.log("Headers Sent:", {
+      "x-Signature": response.config.headers["x-Signature"],
+      "x-Transaction": response.config.headers["x-Transaction"],
+    });
+
+    console.log("\nResponse Details:");
+    console.log("Status:", response.status);
+    console.log("Data:", response.data);
+    console.log("Data:", response.statusText);
+  } catch (error) {
+    console.log(error);
+    if (axios.isAxiosError(error)) {
+      console.error("\nRequest Failed:");
+      console.log("Status:", error.response?.status);
+      console.log("Headers:", error.response?.headers);
+      console.log("Data:", error.response?.data);
+      if (error.response?.headers["x-payment"]) {
+        console.log("\nChannel State in Error Response:");
+        console.log(error.response.headers["x-payment"]);
+      }
+    } else {
+      console.error("\nUnexpected Error:", error);
+    }
+  }
+}
+
+// // Run test
+// testPaymentChannelInterceptors()
+//   .then(() => console.log("\nTest completed"))
+//   .catch(console.error);
+
+testOnetimePaymentInterceptors()
   .then(() => console.log("\nTest completed"))
   .catch(console.error);

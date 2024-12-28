@@ -34,6 +34,16 @@ pub async fn verify_and_update_channel(
     println!("Message length: {}", request.message.len());
     println!("Original message: 0x{}", hex::encode(&request.message));
 
+    // Check timestamp first
+    let now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_secs();
+
+    if now - request.timestamp > 300 {
+        return Err(AuthError::TimestampError);
+    }
+
     // Verify that the message matches what we expect
     let reconstructed_message = create_channel_message(
         request.payment_channel.channel_id,
