@@ -241,7 +241,7 @@ export class ClientInterceptor {
   }
 
   /**
-   * signs a request with channel details
+   * signs a request with one time payment details
    * @param txHash Transaction Hash
    * @returns SignedRequest
    */
@@ -254,6 +254,38 @@ export class ClientInterceptor {
 
       console.log("\nMessage Components:");
       console.log("Tx Hash:", txHash);
+      console.log("Final Message:", encodedMessage);
+
+      // @ts-ignore
+      const signature = await this.account?.signMessage({
+        message: { raw: encodedMessage },
+      });
+
+      console.log("Signature:", signature);
+
+      return {
+        message: encodedMessage,
+        signature,
+        timestamp: Math.floor(Date.now() / 1000).toString(),
+      };
+    } catch (err) {
+      console.error("Sign Request Error:", err);
+      throw err;
+    }
+  }
+
+  /**
+   * signs a request with stream details
+   * @param sender Sender Address
+   * @returns SignedRequest
+   */
+  async signStreamRequest(sender: `0x${string}`): Promise<SignedRequest> {
+    try {
+      // Concatenate all parts
+      const encodedMessage = keccak256(encodePacked(["address"], [sender]));
+
+      console.log("\nMessage Components:");
+      console.log("Sender:", sender);
       console.log("Final Message:", encodedMessage);
 
       // @ts-ignore
@@ -330,6 +362,39 @@ export class ClientInterceptor {
             ...config.headers,
             "X-Signature": signedRequest.signature,
             "X-Transaction": txHash,
+            "X-Timestamp": signedRequest.timestamp,
+          });
+
+          return config;
+        } catch (err) {
+          // if (axios.isAxiosError(err)) {
+          //   // console.error(formatAxiosError(err));
+          //   console.error("Error -kushagra2:");
+          // } else {
+          //   console.error("Error -kushagra2:");
+          // }
+          throw err;
+        }
+      },
+    };
+  }
+
+  /**
+   * creates a stream based requests interceptor for HTTP clients (axios, fetch)
+   * @param sender
+   */
+  createStreamRequestInterceptor(sender: `0x${string}`) {
+    return {
+      request: async (config: InternalAxiosRequestConfig) => {
+        try {
+          const signedRequest = await this.signStreamRequest(sender);
+
+          console.log("Adding headers to request:");
+          config.headers = new axios.AxiosHeaders({
+            ...config.headers,
+            "X-Signature": signedRequest.signature,
+            "X-Sender": sender,
+            "X-Timestamp": signedRequest.timestamp,
           });
 
           return config;
