@@ -59,7 +59,7 @@ async fn root() -> &'static str {
 ```rust
 use alloy::{primitives::{U256,Address}};
 use axum::{routing::get, Router};
-use pipegate::{middleware::{onetime_payment_auth_middleware OneTimePaymentMiddlewareState},types::OneTimePaymentConfig,};
+use pipegate::{middleware::{onetime_payment_auth_middleware, OneTimePaymentMiddlewareState},types::OneTimePaymentConfig,};
 
 #[tokio::main]
 async fn main() {

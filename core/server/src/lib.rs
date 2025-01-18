@@ -10,17 +10,17 @@ mod extractors;
 #[cfg(target_arch = "wasm32")]
 pub mod wasm;
 
-// #[cfg(target_arch = "wasm32")]
-// pub use wasm::*;
-
 #[cfg(test)]
 #[cfg(not(target_arch = "wasm32"))]
 mod tests {
     use std::str::FromStr;
 
-    use alloy::primitives::{Address, FixedBytes, PrimitiveSignature, U256};
-    use types::{OneTimePaymentConfig, SignedPaymentTx};
-    use verify::verify_tx;
+    use alloy::primitives::{aliases::I96, Address, FixedBytes, PrimitiveSignature, U256};
+    use types::{
+        tx::{SignedStream, StreamsConfig},
+        OneTimePaymentConfig, SignedPaymentTx,
+    };
+    use verify::{verify_stream, verify_tx};
 
     use super::*;
 
@@ -45,6 +45,30 @@ mod tests {
         };
 
         let result = verify_tx(signed_payment_tx, onetime_payment_config).await;
+        println!("Result: {:?}", result);
+
+        assert_eq!(result.is_ok(), true);
+        assert_eq!(result.unwrap(), true);
+    }
+
+    #[tokio::test]
+    async fn test_stream() {
+        let rpc_url = "https://base-sepolia-rpc.publicnode.com";
+
+        let stream_payment_config = StreamsConfig {
+            recipient: Address::from_str("0x62c43323447899acb61c18181e34168903e033bf").unwrap(),
+            token_address: Address::from_str("0x1650581f573ead727b92073b5ef8b4f5b94d1648").unwrap(),
+            amount: "761035007610".parse::<I96>().unwrap(), // 2 USDC per month
+            cfa_forwarder: Address::from_str("0xcfA132E353cB4E398080B9700609bb008eceB125").unwrap(),
+            rpc_url: rpc_url.to_string(),
+        };
+
+        let signed_stream = SignedStream {
+            signature: PrimitiveSignature::from_str("0x9dce84f7bd5fea33c7d91042f8fd5ee539d8c4ed9dcfcd49884ae1cb99842a8c4fa243b75eb3fd2d611e953e40202a5e94a3c513268f75a002f89c5a375527231b").unwrap(),
+            sender: Address::from_str("0x898d0DBd5850e086E6C09D2c83A26Bb5F1ff8C33").unwrap(),
+        };
+
+        let result = verify_stream(signed_stream, stream_payment_config).await;
         println!("Result: {:?}", result);
 
         assert_eq!(result.is_ok(), true);

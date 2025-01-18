@@ -411,6 +411,7 @@ pub async fn verify_stream(stream: SignedStream, config: StreamsConfig) -> Resul
         return Err(AuthError::InvalidStream("No stream flow found".to_string()));
     } else {
         println!("Stream flow found");
+        println!("Flow rate: {}", flow_info.flowrate);
         // check the flowRate matches with what recipient expects
         if flow_info.flowrate != config.amount {
             println!("Failed: Invalid stream flow rate");
@@ -421,16 +422,4 @@ pub async fn verify_stream(stream: SignedStream, config: StreamsConfig) -> Resul
     }
 
     Ok(true)
-}
-
-#[cfg(test)]
-mod tests {
-
-    use super::*;
-    use crate::types::tx::SignedStream;
-    use alloy::primitives::U256;
-    use std::str::FromStr;
-
-    #[tokio::test]
-    async fn test_verify_stream() {}
 }
