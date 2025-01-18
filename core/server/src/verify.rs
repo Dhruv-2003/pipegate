@@ -4,8 +4,9 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use alloy::{
     dyn_abi::DynSolType,
     hex::{self},
-    primitives::{Address, U256},
+    primitives::{Address, Signed, U256},
     providers::{Provider, ProviderBuilder},
+    sol,
     transports::http::reqwest::Url,
 };
 
@@ -15,8 +16,11 @@ use js_sys::Date;
 use crate::{
     channel::ChannelState,
     error::AuthError,
-    types::{OneTimePaymentConfig, PaymentChannel, SignedPaymentTx, SignedRequest},
-    utils::{create_channel_message, create_tx_message},
+    types::{
+        tx::{SignedStream, StreamsConfig},
+        OneTimePaymentConfig, PaymentChannel, SignedPaymentTx, SignedRequest,
+    },
+    utils::{create_channel_message, create_tx_message, helpers::create_stream_message},
 };
 
 pub async fn verify_and_update_channel(
@@ -360,4 +364,73 @@ pub async fn verify_tx(
     }
 
     Ok(true)
+}
+
+sol!(
+    #[allow(missing_docs)]
+    #[sol(rpc)]
+    CFAv1Forwarder,
+    "src/abi/CFAv1Forwarder.json"
+);
+
+pub async fn verify_stream(stream: SignedStream, config: StreamsConfig) -> Result<bool, AuthError> {
+    // Creating the message
+    let reconstructed_message = create_stream_message(stream.sender);
+    println!("Message: 0x{}", hex::encode(&reconstructed_message));
+
+    let signature = stream.signature;
+    println!("Signature: 0x{}", hex::encode(&signature.as_bytes()));
+
+    // Recovering the address from the signature
+    let recovered = match signature.recover_address_from_msg(reconstructed_message) {
+        Ok(address) => address,
+        Err(_) => return Err(AuthError::InvalidSignature),
+    };
+    println!("Recovered address: {}", recovered);
+
+    // Verify the recovered address against the sender for the stream
+    if recovered != stream.sender {
+        println!("Failed: Recovered address mismatch");
+        return Err(AuthError::InvalidSignature);
+    }
+
+    let provider = ProviderBuilder::new().on_http(config.rpc_url.parse().unwrap());
+
+    let cfav1_forwarder = CFAv1Forwarder::new(config.cfa_forwarder, provider);
+
+    // Fetch the stream flow from sender to recipient, if it exists, using CFAv1Forwarder
+    let flow_info = cfav1_forwarder
+        .getFlowInfo(config.token_address, stream.sender, config.recipient)
+        .call()
+        .await
+        .map_err(|e| AuthError::ContractError(e.to_string()))?;
+
+    // Check if the flow exists
+    if flow_info.flowrate == Signed::ZERO {
+        println!("Failed: No stream flow found");
+        return Err(AuthError::InvalidStream("No stream flow found".to_string()));
+    } else {
+        println!("Stream flow found");
+        // check the flowRate matches with what recipient expects
+        if flow_info.flowrate != config.amount {
+            println!("Failed: Invalid stream flow rate");
+            return Err(AuthError::InvalidStream(
+                "Invalid stream flow rate".to_string(),
+            ));
+        }
+    }
+
+    Ok(true)
+}
+
+#[cfg(test)]
+mod tests {
+
+    use super::*;
+    use crate::types::tx::SignedStream;
+    use alloy::primitives::U256;
+    use std::str::FromStr;
+
+    #[tokio::test]
+    async fn test_verify_stream() {}
 }

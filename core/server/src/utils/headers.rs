@@ -1,6 +1,6 @@
 use alloy::{
-    hex,
-    primitives::{FixedBytes, PrimitiveSignature, U256},
+    hex::{self},
+    primitives::{Address, FixedBytes, PrimitiveSignature, U256},
 };
 use http::HeaderMap;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -10,7 +10,7 @@ use axum::{
     http::{Response, StatusCode},
 };
 
-use crate::types::{PaymentChannel, SignedPaymentTx, SignedRequest};
+use crate::types::{tx::SignedStream, PaymentChannel, SignedPaymentTx, SignedRequest};
 
 pub async fn parse_headers(
     headers: &HeaderMap,
@@ -170,6 +170,39 @@ pub async fn parse_tx_headers_axum(headers: &HeaderMap) -> Result<SignedPaymentT
     let signed_tx = SignedPaymentTx {
         signature,
         tx_hash: FixedBytes::<32>::from_slice(&tx_hash),
+    };
+
+    Ok(signed_tx)
+}
+
+pub async fn parse_stream_headers(headers: &HeaderMap) -> Result<SignedStream, StatusCode> {
+    let signature = headers
+        .get("X-Signature")
+        .ok_or(StatusCode::UNAUTHORIZED)?
+        .to_str()
+        .map_err(|_| StatusCode::BAD_REQUEST)?;
+
+    let signature = hex::decode(signature.trim_start_matches("0x"))
+        .map_err(|_| {
+            println!("Failed: Signature decode");
+            StatusCode::BAD_REQUEST
+        })
+        .and_then(|bytes| {
+            PrimitiveSignature::try_from(bytes.as_slice()).map_err(|_| {
+                println!("Failed: Signature conversion");
+                StatusCode::BAD_REQUEST
+            })
+        })?;
+
+    let sender = headers
+        .get("X-Sender")
+        .ok_or(StatusCode::UNAUTHORIZED)?
+        .to_str()
+        .map_err(|_| StatusCode::BAD_REQUEST)?;
+
+    let signed_tx = SignedStream {
+        signature,
+        sender: Address::from_slice(sender.as_bytes()),
     };
 
     Ok(signed_tx)
