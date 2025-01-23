@@ -51,7 +51,7 @@ pub async fn main() {
     let stream_payment_config = StreamsConfig {
         recipient: Address::from_str("0x62c43323447899acb61c18181e34168903e033bf").unwrap(),
         token_address: Address::from_str("0x1650581f573ead727b92073b5ef8b4f5b94d1648").unwrap(),
-        amount: "76103500761".parse::<I96>().unwrap(), // 2 USDC per month
+        amount: "761035007610".parse::<I96>().unwrap(), // 2 USDC per month
         cfa_forwarder: Address::from_str("0xcfA132E353cB4E398080B9700609bb008eceB125").unwrap(),
         rpc_url: rpc_url.to_string(),
     };

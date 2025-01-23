@@ -3,7 +3,10 @@ use alloy::{
     primitives::{Address, FixedBytes, PrimitiveSignature, U256},
 };
 use http::HeaderMap;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::{
+    str::FromStr,
+    time::{SystemTime, UNIX_EPOCH},
+};
 
 use axum::{
     body::Body,
@@ -200,9 +203,14 @@ pub async fn parse_stream_headers(headers: &HeaderMap) -> Result<SignedStream, S
         .to_str()
         .map_err(|_| StatusCode::BAD_REQUEST)?;
 
+    let sender = Address::from_str(sender).map_err(|_| {
+        println!("Failed: Sender conversion");
+        StatusCode::BAD_REQUEST
+    })?;
+
     let signed_tx = SignedStream {
         signature,
-        sender: Address::from_slice(sender.as_bytes()),
+        sender: sender,
     };
 
     Ok(signed_tx)

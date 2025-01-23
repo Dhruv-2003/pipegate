@@ -91,6 +91,17 @@ async function extra() {
     },
   });
   console.log(txSignature);
+
+  const streamSender = "0x898d0DBd5850e086E6C09D2c83A26Bb5F1ff8C33";
+
+  const streamHash = keccak256(encodePacked(["address"], [streamSender]));
+
+  const streamSignature = await account.signMessage({
+    message: {
+      raw: streamHash,
+    },
+  });
+  console.log(streamSignature);
 }
 
 extra();

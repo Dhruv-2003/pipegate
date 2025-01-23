@@ -202,6 +202,8 @@ pub async fn superfluid_streams_auth_middleware(
     let verify = verify_stream(signed_stream, state.config).await?;
 
     if verify {
+        println!("Verified");
+        println!("=== end middleware check ===");
         Ok(next.run(request).await)
     } else {
         Err(StatusCode::UNAUTHORIZED)
