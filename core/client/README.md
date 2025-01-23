@@ -116,6 +116,30 @@ api.interceptors.request.use(
 const response = await api.get("/endpoint");
 ```
 
+### Making API Calls with Superfluid streams method
+
+#### Using with Axios
+
+Create an Axios instance with PipeGate interceptors and the txHash of the transaction that was used to pay for the request:
+
+```typescript
+import axios from "axios";
+
+const api = axios.create({
+  baseURL: "https://api.example.com",
+});
+
+const streamSender = "0x898d0DBd5850e086E6C09D2c83A26Bb5F1ff8C33";
+
+// Add request interceptor for automatic signing
+api.interceptors.request.use(
+  pipeGate.createStreamRequestInterceptor(streamSender).request
+);
+
+// Make API calls as normal
+const response = await api.get("/endpoint");
+```
+
 ## Advanced Usage
 
 ### Manual Request Signing
