@@ -1,6 +1,6 @@
 use alloy::{
     dyn_abi::DynSolValue,
-    primitives::{keccak256, FixedBytes, U256},
+    primitives::{keccak256, Address, FixedBytes, U256},
 };
 
 pub fn create_channel_message(
@@ -25,6 +25,16 @@ pub fn create_channel_message(
 
 pub fn create_tx_message(tx_hash: FixedBytes<32>) -> Vec<u8> {
     let message = DynSolValue::Tuple(vec![DynSolValue::Bytes(tx_hash.to_vec())]);
+
+    let encoded_message = message.abi_encode_packed();
+
+    let hashed_message = keccak256(&encoded_message);
+
+    hashed_message.to_vec()
+}
+
+pub fn create_stream_message(sender: Address) -> Vec<u8> {
+    let message = DynSolValue::Tuple(vec![DynSolValue::Address(sender)]);
 
     let encoded_message = message.abi_encode_packed();
 

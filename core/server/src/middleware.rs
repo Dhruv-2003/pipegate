@@ -18,9 +18,12 @@ use tower::{Layer, Service};
 
 use crate::{
     channel::ChannelState,
-    types::{OneTimePaymentConfig, PaymentChannel},
-    utils::{headers::parse_tx_headers_axum, modify_headers_axum, parse_headers},
-    verify::{verify_and_update_channel, verify_tx},
+    types::{tx::StreamsConfig, OneTimePaymentConfig, PaymentChannel},
+    utils::{
+        headers::{parse_stream_headers, parse_tx_headers_axum},
+        modify_headers_axum, parse_headers,
+    },
+    verify::{verify_and_update_channel, verify_stream, verify_tx},
 };
 
 //* PAYMENT CHANNEL MIDDLEWARE LOGIC */
@@ -174,6 +177,33 @@ pub async fn onetime_payment_auth_middleware(
     let verify = verify_tx(signed_payment_tx, state.config).await?;
 
     if verify {
+        Ok(next.run(request).await)
+    } else {
+        Err(StatusCode::UNAUTHORIZED)
+    }
+}
+
+// * SUPERFLUID STREAMS MIDDLEWARE LOGIC */
+#[derive(Clone)]
+pub struct SuperfluidStreamsMiddlewareState {
+    pub config: StreamsConfig,
+}
+
+pub async fn superfluid_streams_auth_middleware(
+    State(state): State<SuperfluidStreamsMiddlewareState>,
+    request: Request<Body>,
+    next: Next,
+) -> Result<Response, StatusCode> {
+    println!("\n=== superfluid_streams_auth_middleware ===");
+    println!("=== new request ===");
+
+    let signed_stream = parse_stream_headers(&request.headers().clone()).await?;
+
+    let verify = verify_stream(signed_stream, state.config).await?;
+
+    if verify {
+        println!("Verified");
+        println!("=== end middleware check ===");
         Ok(next.run(request).await)
     } else {
         Err(StatusCode::UNAUTHORIZED)

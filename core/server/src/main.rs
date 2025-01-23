@@ -11,12 +11,15 @@ use pipegate::{
 #[cfg(not(target_arch = "wasm32"))]
 #[tokio::main]
 pub async fn main() {
+    use alloy::primitives::aliases::I96;
     use axum::middleware;
     use pipegate::{
         middleware::{
-            onetime_payment_auth_middleware, OneTimePaymentMiddlewareState, PipegateMiddlewareLayer,
+            onetime_payment_auth_middleware, superfluid_streams_auth_middleware,
+            OneTimePaymentMiddlewareState, PipegateMiddlewareLayer,
+            SuperfluidStreamsMiddlewareState,
         },
-        types::OneTimePaymentConfig,
+        types::{tx::StreamsConfig, OneTimePaymentConfig},
     };
 
     // a mock server implementation using axum
@@ -45,8 +48,19 @@ pub async fn main() {
         config: onetime_payment_config,
     };
 
+    let stream_payment_config = StreamsConfig {
+        recipient: Address::from_str("0x62c43323447899acb61c18181e34168903e033bf").unwrap(),
+        token_address: Address::from_str("0x1650581f573ead727b92073b5ef8b4f5b94d1648").unwrap(),
+        amount: "761035007610".parse::<I96>().unwrap(), // 2 USDC per month
+        cfa_forwarder: Address::from_str("0xcfA132E353cB4E398080B9700609bb008eceB125").unwrap(),
+        rpc_url: rpc_url.to_string(),
+    };
+
+    let stream_state = SuperfluidStreamsMiddlewareState {
+        config: stream_payment_config,
+    };
+
     let app = Router::new()
-        // `GET /` goes to `root`
         .route(
             "/",
             get(root).route_layer(PipegateMiddlewareLayer::new(state.clone(), payment_amount)),
@@ -56,6 +70,13 @@ pub async fn main() {
             get(one_time).route_layer(middleware::from_fn_with_state(
                 onetime_state,
                 onetime_payment_auth_middleware,
+            )),
+        )
+        .route(
+            "/stream",
+            get(stream).route_layer(middleware::from_fn_with_state(
+                stream_state,
+                superfluid_streams_auth_middleware,
             )),
         );
 
@@ -72,6 +93,10 @@ async fn root() -> &'static str {
 
 async fn one_time() -> &'static str {
     "One Time Payment Authenticated"
+}
+
+async fn stream() -> &'static str {
+    "Stream Payment Authenticated"
 }
 
 #[cfg(not(target_arch = "wasm32"))]

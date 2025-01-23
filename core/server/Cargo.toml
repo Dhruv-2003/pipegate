@@ -1,6 +1,6 @@
 [package]
 name = "pipegate"
-version = "0.4.1"
+version = "0.4.2"
 edition = "2021"
 description = "A payment authentication middleware with stablecoins"
 license = "MIT"

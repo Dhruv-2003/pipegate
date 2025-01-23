@@ -2,13 +2,16 @@ use std::str::FromStr;
 
 use crate::{
     channel::{close_channel, ChannelState},
-    types::{OneTimePaymentConfig, PaymentChannel, SignedPaymentTx, SignedRequest},
-    verify::{verify_and_update_channel, verify_channel, verify_tx},
+    types::{
+        tx::{SignedStream, StreamsConfig},
+        OneTimePaymentConfig, PaymentChannel, SignedPaymentTx, SignedRequest,
+    },
+    verify::{verify_and_update_channel, verify_channel, verify_stream, verify_tx},
 };
 
 use alloy::{
     hex,
-    primitives::{Bytes, FixedBytes, PrimitiveSignature, U256},
+    primitives::{Address, Bytes, FixedBytes, PrimitiveSignature, U256},
 };
 
 use console_error_panic_hook;
@@ -171,6 +174,36 @@ pub fn verify_onetime_payment_tx(
         let signed_payment_tx = SignedPaymentTx { signature, tx_hash };
 
         let result = verify_tx(signed_payment_tx, onetime_payment_config)
+            .await
+            .map_err(|e| JsValue::from_str(&format!("Verification failed: {}", e)))?;
+
+        Ok(JsValue::from_bool(result))
+    })
+}
+
+#[wasm_bindgen]
+pub fn verify_stream_tx(
+    stream_config_json: String,
+    signature: String,
+    sender: String,
+) -> js_sys::Promise {
+    future_to_promise(async move {
+        let stream_config: StreamsConfig = serde_json::from_str(&stream_config_json)
+            .map_err(|e| JsValue::from_str(&format!("Invalid stream config: {}", e)))?;
+
+        let signature: PrimitiveSignature = unhexlify(&signature)
+            .map_err(|e| JsValue::from_str(&format!("Invalid signature: {}", e)))
+            .and_then(|bytes| {
+                PrimitiveSignature::try_from(bytes.as_slice())
+                    .map_err(|_| JsValue::from_str("Invalid signature: invalid length"))
+            })?;
+
+        let sender = Address::from_str(&sender)
+            .map_err(|e| JsValue::from_str(&format!("Invalid sender addres: {}", e)))?;
+
+        let signed_stream = SignedStream { signature, sender };
+
+        let result = verify_stream(signed_stream, stream_config)
             .await
             .map_err(|e| JsValue::from_str(&format!("Verification failed: {}", e)))?;
 

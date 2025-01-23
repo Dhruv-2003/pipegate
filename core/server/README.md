@@ -59,7 +59,7 @@ async fn root() -> &'static str {
 ```rust
 use alloy::{primitives::{U256,Address}};
 use axum::{routing::get, Router};
-use pipegate::{middleware::{onetime_payment_auth_middleware OneTimePaymentMiddlewareState},types::OneTimePaymentConfig,};
+use pipegate::{middleware::{onetime_payment_auth_middleware, OneTimePaymentMiddlewareState},types::OneTimePaymentConfig,};
 
 #[tokio::main]
 async fn main() {
@@ -85,6 +85,49 @@ async fn main() {
         .layer(middleware::from_fn_with_state(
                 onetime_state,
                 onetime_payment_auth_middleware,
+            ));
+
+    // Start server
+    let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
+    axum::serve(listener, app).await.unwrap();
+}
+
+async fn root() -> &'static str {
+    "Hello, World!"
+}
+```
+
+### Simple Server Implementation for Stream middleware
+
+```rust
+use alloy::{primitives::{U256,Address}};
+use axum::{routing::get, Router};
+use pipegate::{middleware::{superfluid_streams_auth_middleware,SuperfluidStreamsMiddlewareState},types::tx::StreamsConfig};
+
+#[tokio::main]
+async fn main() {
+    // Configure RPC endpoint
+    let rpc_url: alloy::transports::http::reqwest::Url =
+        "https://base-sepolia-rpc.publicnode.com".parse().unwrap();
+
+    let stream_payment_config = StreamsConfig {
+        recipient: Address::from_str("0x62c43323447899acb61c18181e34168903e033bf").unwrap(),
+        token_address: Address::from_str("0x1650581f573ead727b92073b5ef8b4f5b94d1648").unwrap(),
+        amount: "761035007610".parse::<I96>().unwrap(), // 2 USDC per month
+        cfa_forwarder: Address::from_str("0xcfA132E353cB4E398080B9700609bb008eceB125").unwrap(),
+        rpc_url: rpc_url.to_string(),
+    };
+
+    let stream_state = SuperfluidStreamsMiddlewareState {
+        config: stream_payment_config,
+    };
+
+    // Create router with middleware
+    let app = Router::new()
+        .route("/", get(root))
+        .layer(middleware::from_fn_with_state(
+                stream_state,
+                superfluid_streams_auth_middleware,
             ));
 
     // Start server

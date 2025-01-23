@@ -2,13 +2,13 @@
 
 <!-- Pay-per-Call API Monetisation - The Web3 Stripe for APIs -->
 
-The Web3 Stripe for APIs. Create payment channels, make API calls, payments happen automatically. No API keys, no gas fees per request, just use your wallet and start building.
+The Web3 Stripe for APIs. Create payment channels or streams, make API calls, payments happen automatically. No API keys, no gas fees per request, just use your wallet and start building.
 
 <img width="952" alt="Screenshot 2024-11-17 at 12 32 48 AM" src="https://github.com/user-attachments/assets/fe1b3926-224d-48e6-8dea-44214e471406">
 
 ## Description
 
-PipeGate is a decentralized API monetization protocol that changes how APIs handle payments and access control. By replacing traditional API keys with payment channels and one time payments, it enables true pay-per-call pricing without gas fees for each request.
+PipeGate is a decentralized API monetization protocol that changes how APIs handle payments and access control. By replacing traditional API keys with payment channels, one time payments & streams, it enables true pay-per-call pricing without gas fees for each request.
 
 **The protocol consists of three main components:**
 
@@ -18,6 +18,7 @@ PipeGate is a decentralized API monetization protocol that changes how APIs hand
 
 **Key Features:**
 
+- Seamless stablecoins payment using superfluid streams
 - Gasless microtransactions using payment channels
 - Automatic request signing and payment handling
 - No API keys needed - just your wallet
@@ -32,7 +33,7 @@ PipeGate is a decentralized API monetization protocol that changes how APIs hand
 
 ## Demo
 
-- [Youtube Video](https://youtu.be/8KZ1sLNRUwY)
+- [With Payment channels](https://youtu.be/8KZ1sLNRUwY)
 
 ## How it's made
 
@@ -40,27 +41,32 @@ PipeGate is built using a stack of modern Web3 technologies and standard web pro
 
 **Core Components:**
 
-1. [Smart Contracts (Solidity)](https://github.com/Dhruv-2003/pipegate/tree/main/core/contract):
+1. [Server Middleware (Rust)](https://github.com/Dhruv-2003/pipegate/tree/main/core/server):
+
+   - Middlewares for signature verification
+   - Utility handlers for parsing headers from requests
+   - WASM compatible
+
+2. [SDK (TypeScript)](https://github.com/Dhruv-2003/pipegate/tree/main/core/client):
+
+   - Axios interceptors for seamless request modification
+   - State management for channels
+   - Exposes server side middlerwares using WASM bindings
+
+3. [Smart Contracts (Solidity)](https://github.com/Dhruv-2003/pipegate/tree/main/core/contract):
 
    - Payment Channel Factory for channel creation
    - Channel contracts for handling payments
    - Beacon Proxy pattern for low deployment fees
 
-2. [Client SDK (TypeScript)](https://github.com/Dhruv-2003/pipegate/tree/main/core/client):
-
-   - Built with viem for blockchain interactions
-   - Axios interceptors for seamless request modification
-   - State management for channel tracking
-
-3. [Server Middleware (Rust)](https://github.com/Dhruv-2003/pipegate/tree/main/core/server):
-
-   - Signature verification
-   - Payment channel state management
-   - One time payment verification for API calls
-
 ## Architecture & Flow
 
-<img width="983" alt="Screenshot 2024-12-12 at 12 09 55 PM" src="https://github.com/user-attachments/assets/f17b00a5-08f1-40d5-965d-7435559ca799" />
+### With Payment channels
+
+<img width="983" alt="Screenshot 2024-12-12 at 12 09 55 PM" src="https://github.com/user-attachments/
+assets/f17b00a5-08f1-40d5-965d-7435559ca799" />
+
+### With Streams
 
 ## Publish SDKs & Libraries
 

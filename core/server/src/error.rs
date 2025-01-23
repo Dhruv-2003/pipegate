@@ -37,6 +37,8 @@ pub enum AuthError {
     TransactionNotFound,
     #[error("Invalid Transaction : {0}")]
     InvalidTransaction(String),
+    #[error("Invalid Stream : {0}")]
+    InvalidStream(String),
 }
 
 impl From<AuthError> for StatusCode {
@@ -59,6 +61,7 @@ impl From<AuthError> for StatusCode {
             AuthError::InternalError => StatusCode::INTERNAL_SERVER_ERROR,
             AuthError::TransactionNotFound => StatusCode::BAD_REQUEST,
             AuthError::InvalidTransaction(_) => StatusCode::BAD_REQUEST,
+            AuthError::InvalidStream(_) => StatusCode::BAD_REQUEST,
         }
     }
 }
