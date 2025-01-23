@@ -63,10 +63,11 @@ PipeGate is built using a stack of modern Web3 technologies and standard web pro
 
 ### With Payment channels
 
-<img width="983" alt="Screenshot 2024-12-12 at 12 09 55 PM" src="https://github.com/user-attachments/
-assets/f17b00a5-08f1-40d5-965d-7435559ca799" />
+<img width="983" alt="Screenshot 2024-12-12 at 12 09 55 PM" src="https://github.com/user-attachments/assets/9ab25e8b-35b2-4f9e-a131-166e80643bf7" />
 
 ### With Streams
+
+<img width="988" alt="Screenshot 2025-01-23 at 10 02 26 PM" src="https://github.com/user-attachments/assets/0ad5a98f-c8a6-4c03-bf11-8618db3cb22f" />
 
 ## Publish SDKs & Libraries
 
