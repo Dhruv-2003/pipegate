@@ -76,6 +76,8 @@ PipeGate is built using a stack of modern Web3 technologies and standard web pro
 
 ## How to use
 
+### With payment channels
+
 ### For API Providers
 
 1. **Register your API:**
@@ -107,6 +109,23 @@ PipeGate is built using a stack of modern Web3 technologies and standard web pro
    - Use the client-side SDK to add interceptor to your axios instance with this [sdk](https://github.com/Dhruv-2003/pipegate/tree/main/core/client)
 
 With this project, we've tried to make the complex payment channel system completely invisible to both API providers and consumers, while maintaining security and efficiency.
+
+### With Superfluid streams ( in beta )
+
+### For API Providers
+
+1. **Add the server side middleware**
+   - Add this pipegate server side middleware to your axum based server [here](https://github.com/Dhruv-2003/pipegate/blob/main/core/client/README.md#making-api-calls-with-superfluid-streams-method)
+
+### For API Consumers
+
+1. **Create a stream**
+
+   - Create a stream to the API provider's address using the superfluid [app](https://app.superfluid.finance/send)
+
+2. **Make API calls**
+
+   - Use the client-side SDK to add interceptor to your axios instance with this [sdk](https://github.com/Dhruv-2003/pipegate/blob/main/core/client/README.md#making-api-calls-with-superfluid-streams-method)
 
 ## Team
 
