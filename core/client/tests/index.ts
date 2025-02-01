@@ -48,10 +48,14 @@ async function testPaymentChannelInterceptors() {
 
     console.log("\nSending request to the root route...");
 
+    let start = performance.now();
     // Make a GET request to the root route
     const response = await axiosInstance.get("/", {
       validateStatus: (status) => true, // Accept any status code
     });
+
+    let end = performance.now();
+    console.log("METRICS: Request with payment-channel took", end - start);
 
     console.log("\nRequest Details:");
     console.log("URL:", response.config.url);
@@ -126,10 +130,14 @@ async function testOnetimePaymentInterceptors() {
 
     console.log("\nSending request to the root route...");
 
+    let start = performance.now();
     // Make a GET request to the root route
-    const response = await axiosInstance.post("/one-time", {
+    const response = await axiosInstance.get("/one-time", {
       validateStatus: (status) => true, // Accept any status code
     });
+
+    let end = performance.now();
+    console.log("METRICS: Request with payment-channel took", end - start);
 
     console.log("\nRequest Details:");
     console.log("URL:", response.config.url);
@@ -185,10 +193,15 @@ async function testStreamInterceptors() {
 
     console.log("\nSending request to the root route...");
 
+    let start = performance.now();
+
     // Make a GET request to the root route
     const response = await axiosInstance.get("/stream", {
       validateStatus: (status) => true, // Accept any status code
     });
+
+    let end = performance.now();
+    console.log("METRICS: Request with payment-channel took", end - start);
 
     console.log("\nRequest Details:");
     console.log("URL:", response.config.url);
@@ -221,17 +234,17 @@ async function testStreamInterceptors() {
 
 // Run test
 async function main() {
-  // testPaymentChannelInterceptors()
-  //   .then(() => console.log("\nTest completed"))
-  //   .catch(console.error);
+  testPaymentChannelInterceptors()
+    .then(() => console.log("\nTest completed"))
+    .catch(console.error);
 
   // testOnetimePaymentInterceptors()
   //   .then(() => console.log("\nTest completed"))
   //   .catch(console.error);
 
-  testStreamInterceptors()
-    .then(() => console.log("\nTest completed"))
-    .catch(console.error);
+  // testStreamInterceptors()
+  //   .then(() => console.log("\nTest completed"))
+  //   .catch(console.error);
 }
 
 main();

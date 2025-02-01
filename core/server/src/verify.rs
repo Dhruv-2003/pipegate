@@ -1,3 +1,4 @@
+use std::time::Instant;
 #[cfg(not(target_arch = "wasm32"))]
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -12,8 +13,10 @@ use alloy::{
 
 #[cfg(target_arch = "wasm32")]
 use js_sys::Date;
+use tracing::info;
 
 use crate::{
+    benchmark::log_benchmark,
     channel::ChannelState,
     error::AuthError,
     types::{
@@ -52,6 +55,7 @@ pub async fn verify_and_update_channel(
         return Err(AuthError::TimestampError);
     }
 
+    let sig_start = Instant::now();
     // Verify that the message matches what we expect
     let reconstructed_message = create_channel_message(
         request.payment_channel.channel_id,
@@ -75,6 +79,13 @@ pub async fn verify_and_update_channel(
             &request.message,
         )
         .await?;
+
+    info!("Signature verification took {:?}", sig_start.elapsed());
+    log_benchmark(
+        "Signature verification",
+        sig_start.elapsed().as_millis(),
+        "channel",
+    );
 
     let mut channels = state.channels.write().await;
 
@@ -123,7 +134,18 @@ pub async fn verify_and_update_channel(
         // 1. Verify the balance is available in the contract as the channel balance
         // 2. Verify the expiration is in the future
         // 3. Verify the channel ID is correct
+
+        let onchain_validation_start = Instant::now();
         state.validate_channel(&request.payment_channel).await?;
+        info!(
+            "On-chain validation took {:?}",
+            onchain_validation_start.elapsed()
+        );
+        log_benchmark(
+            "On-chain validation",
+            onchain_validation_start.elapsed().as_millis(),
+            "channel",
+        );
 
         // Ensure the nonce is 0
         if request.payment_channel.nonce != U256::from(0) {
@@ -267,6 +289,7 @@ pub async fn verify_tx(
     signed_tx: SignedPaymentTx,
     config: OneTimePaymentConfig,
 ) -> Result<bool, AuthError> {
+    let sig_start = Instant::now();
     // creating the message
     let reconstructed_message = create_tx_message(signed_tx.tx_hash);
     println!("Message: 0x{}", hex::encode(&reconstructed_message));
@@ -280,7 +303,15 @@ pub async fn verify_tx(
         Err(_) => return Err(AuthError::InvalidSignature),
     };
     println!("Recovered address: {}", recovered);
+    info!("Signature verification took {:?}", sig_start.elapsed());
+    log_benchmark(
+        "Signature verification",
+        sig_start.elapsed().as_millis(),
+        "onetime",
+    );
 
+    let onchain_start = Instant::now();
+    // Creating the provider
     let provider = ProviderBuilder::new().on_http(config.rpc_url.parse().unwrap());
 
     // Fetching the info for transaction
@@ -362,6 +393,12 @@ pub async fn verify_tx(
             None => return Err(AuthError::InvalidTransaction("Topic not found".to_string())),
         }
     }
+    info!("On-chain call took {:?}", onchain_start.elapsed());
+    log_benchmark(
+        "On-chain call",
+        onchain_start.elapsed().as_millis(),
+        "onetime",
+    );
 
     Ok(true)
 }
@@ -374,6 +411,7 @@ sol!(
 );
 
 pub async fn verify_stream(stream: SignedStream, config: StreamsConfig) -> Result<bool, AuthError> {
+    let sig_verify_start = Instant::now();
     // Creating the message
     let reconstructed_message = create_stream_message(stream.sender);
     println!("Message: 0x{}", hex::encode(&reconstructed_message));
@@ -393,7 +431,17 @@ pub async fn verify_stream(stream: SignedStream, config: StreamsConfig) -> Resul
         println!("Failed: Recovered address mismatch");
         return Err(AuthError::InvalidSignature);
     }
+    info!(
+        "Signature verification took {:?}",
+        sig_verify_start.elapsed()
+    );
+    log_benchmark(
+        "Signature verification",
+        sig_verify_start.elapsed().as_millis(),
+        "streams",
+    );
 
+    let onchain_start = Instant::now();
     let provider = ProviderBuilder::new().on_http(config.rpc_url.parse().unwrap());
 
     let cfav1_forwarder = CFAv1Forwarder::new(config.cfa_forwarder, provider);
@@ -404,6 +452,12 @@ pub async fn verify_stream(stream: SignedStream, config: StreamsConfig) -> Resul
         .call()
         .await
         .map_err(|e| AuthError::ContractError(e.to_string()))?;
+    info!("On-chain call took {:?}", onchain_start.elapsed());
+    log_benchmark(
+        "On-chain call",
+        onchain_start.elapsed().as_millis(),
+        "streams",
+    );
 
     // Check if the flow exists
     if flow_info.flowrate == Signed::ZERO {

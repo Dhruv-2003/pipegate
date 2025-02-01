@@ -31,7 +31,7 @@ sol!(
     "src/abi/PaymentChannel.json"
 );
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct ChannelState {
     pub(crate) channels: Arc<RwLock<HashMap<U256, PaymentChannel>>>, // All the channels the current server has with other user
     rate_limiter: Arc<RwLock<HashMap<Address, (u64, SystemTime)>>>,  // Rate limiter for the user

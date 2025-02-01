@@ -7,10 +7,18 @@ use pipegate::{
     channel::{close_channel, ChannelState},
     types::PaymentChannel,
 };
+use tracing::info;
+use tracing_subscriber;
 
 #[cfg(not(target_arch = "wasm32"))]
 #[tokio::main]
 pub async fn main() {
+    tracing_subscriber::fmt::init();
+    info!("Tracing initialized");
+    info!("Starting server...");
+
+    // use std::time::Duration;
+
     use alloy::primitives::aliases::I96;
     use axum::middleware;
     use pipegate::{
@@ -21,14 +29,18 @@ pub async fn main() {
         },
         types::{tx::StreamsConfig, OneTimePaymentConfig},
     };
+    // use pprof::ProfilerGuard;
+    // use tokio::task;
+
+    // let profiler = ProfilerGuard::new(100).unwrap(); // Sampling rate: 100Hz
 
     // a mock server implementation using axum
     // build our application with a route
 
     // add middleware we created for protecting routes
     // Create a new instance of our state
-    let rpc_url: alloy::transports::http::reqwest::Url =
-        "https://base-sepolia-rpc.publicnode.com".parse().unwrap();
+    let rpc_url: alloy::transports::http::reqwest::Url = "https://base-sepolia-rpc.publicnode.com".parse().unwrap();
+ 
 
     // Amount is not supposed to be in the decimal format, so parsed with the decimals of that token
     // E.g. if USDC is being used 1USDC = 1000000 after 6 decimal places in case of the USDC token
@@ -82,9 +94,24 @@ pub async fn main() {
 
     // run our server on localhost:3000
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
-    axum::serve(listener, app).await.unwrap();
 
-    println!("Listening on: http://localhost:3000");
+    // let profiler_task = task::spawn(async move {
+    //     loop {
+    //         tokio::time::sleep(Duration::from_secs(10)).await;
+    //         if let Ok(report) = profiler.report().build() {
+    //             let file = std::fs::File::create("src/benchmark/flamegraph.svg").unwrap();
+    //             report.flamegraph(file).unwrap();
+    //             println!("🔥 Flamegraph saved as flamegraph.svg");
+    //         } else {
+    //             eprintln!("Error generating flamegraph report.");
+    //         }
+    //     }
+    // });
+
+    axum::serve(listener, app).await.unwrap();
+    info!("Listening on: http://localhost:3000");
+
+    // profiler_task.await.unwrap();
 }
 
 async fn root() -> &'static str {

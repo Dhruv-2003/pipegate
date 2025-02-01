@@ -5,6 +5,8 @@ pub mod types;
 pub mod utils;
 pub mod verify;
 
+pub mod benchmark;
+
 mod extractors;
 
 #[cfg(target_arch = "wasm32")]

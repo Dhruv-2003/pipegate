@@ -313,15 +313,23 @@ export class ClientInterceptor {
   createPaymentChannelRequestInterceptor(channelId: string) {
     return {
       request: async (config: InternalAxiosRequestConfig) => {
+        let start = performance.now();
         try {
           const channelState = this.channelStates.get(channelId);
           if (!channelState) {
             throw new Error(`No payment channel found for ID: ${channelId}`);
           }
 
+          let signStart = performance.now();
           const signedRequest = await this.signPaymentChannelRequest(
             channelState,
             config.data
+          );
+          let signEnd = performance.now();
+
+          console.log(
+            "METRICS : payment channel signing took",
+            signEnd - signStart
           );
 
           console.log("Adding headers to request:");
@@ -342,6 +350,12 @@ export class ClientInterceptor {
           //   console.error("Error -kushagra2:");
           // }
           throw err;
+        } finally {
+          let end = performance.now();
+          console.log(
+            "METRICS : onetime request interceptor took",
+            end - start
+          );
         }
       },
     };
@@ -354,8 +368,14 @@ export class ClientInterceptor {
   createOneTimePaymentRequestInterceptor(txHash: `0x${string}`) {
     return {
       request: async (config: InternalAxiosRequestConfig) => {
+        let start = performance.now();
+
         try {
+          let signStart = performance.now();
           const signedRequest = await this.signOneTimePaymentRequest(txHash);
+          let signEnd = performance.now();
+
+          console.log("METRICS : onetime signing took", signEnd - signStart);
 
           console.log("Adding headers to request:");
           config.headers = new axios.AxiosHeaders({
@@ -374,6 +394,12 @@ export class ClientInterceptor {
           //   console.error("Error -kushagra2:");
           // }
           throw err;
+        } finally {
+          let end = performance.now();
+          console.log(
+            "METRICS : onetime request interceptor took",
+            end - start
+          );
         }
       },
     };
@@ -386,8 +412,13 @@ export class ClientInterceptor {
   createStreamRequestInterceptor(sender: `0x${string}`) {
     return {
       request: async (config: InternalAxiosRequestConfig) => {
+        let start = performance.now();
         try {
+          let signStart = performance.now();
           const signedRequest = await this.signStreamRequest(sender);
+          let signEnd = performance.now();
+
+          console.log("METRICS : Stream signing took", signEnd - signStart);
 
           console.log("Adding headers to request:");
           config.headers = new axios.AxiosHeaders({
@@ -406,6 +437,9 @@ export class ClientInterceptor {
           //   console.error("Error -kushagra2:");
           // }
           throw err;
+        } finally {
+          let end = performance.now();
+          console.log("METRICS : Stream request interceptor took", end - start);
         }
       },
     };
@@ -421,6 +455,7 @@ export class ClientInterceptor {
         console.log("Response Headers:", response.headers);
         console.log("Response Data:", response.data);
 
+        let start = performance.now();
         // Proceed with channel state extraction
         try {
           const paymentChannelStr =
@@ -454,6 +489,12 @@ export class ClientInterceptor {
           //   console.error("Error -kushagra3:");
           // }
           throw err;
+        } finally {
+          let end = performance.now();
+          console.log(
+            "METRICS : payment channel response interceptor took",
+            end - start
+          );
         }
       },
     };
