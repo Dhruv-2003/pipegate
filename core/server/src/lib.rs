@@ -1,11 +1,6 @@
-pub mod channel;
 pub mod error;
 pub mod middleware;
-pub mod types;
 pub mod utils;
-pub mod verify;
-
-mod extractors;
 
 #[cfg(target_arch = "wasm32")]
 pub mod wasm;
@@ -16,13 +11,17 @@ mod tests {
     use std::str::FromStr;
 
     use alloy::primitives::{aliases::I96, Address, FixedBytes, PrimitiveSignature, U256};
-    use types::{
-        tx::{SignedStream, StreamsConfig},
-        OneTimePaymentConfig, SignedPaymentTx,
-    };
-    use verify::{verify_stream, verify_tx};
 
-    use super::*;
+    use crate::middleware::{
+        one_time_payment::{
+            types::{OneTimePaymentConfig, SignedPaymentTx},
+            verify::verify_tx,
+        },
+        stream_payment::{
+            types::{SignedStream, StreamsConfig},
+            verify::verify_stream,
+        },
+    };
 
     #[tokio::test]
     async fn test_verify_and_update() {}

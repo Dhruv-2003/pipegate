@@ -22,7 +22,7 @@ use js_sys::Date;
 
 use tokio::sync::RwLock;
 
-use crate::{error::AuthError, types::PaymentChannel};
+use crate::{error::AuthError, middleware::payment_channel::types::PaymentChannel};
 
 sol!(
     #[allow(missing_docs)]

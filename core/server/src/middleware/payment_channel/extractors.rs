@@ -5,7 +5,7 @@ use alloy::{
 use axum::{async_trait, extract::FromRequestParts};
 use http::{request::Parts, StatusCode};
 
-use crate::types::PaymentChannel;
+use crate::middleware::payment_channel::types::PaymentChannel;
 
 #[allow(dead_code)]
 struct PaymentChannelExtractor {
