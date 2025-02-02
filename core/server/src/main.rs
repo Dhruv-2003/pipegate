@@ -47,7 +47,11 @@ pub async fn main() {
     let app = Router::new()
         .route(
             "/",
-            get(root).route_layer(PipegateMiddlewareLayer::new(state.clone(), payment_amount)),
+            get(root).route_layer(PipegateMiddlewareLayer::new(
+                state.clone(),
+                payment_amount,
+                true,
+            )),
         )
         .route(
             "/one-time",
