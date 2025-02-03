@@ -22,6 +22,7 @@ wasm-bindgen = "0.2.99"
 wasm-bindgen-futures = "0.4.49"
 console_error_panic_hook = "0.1.7"
 console_log = "1.0.0"
+reqwest = { version = "0.11", features = ["json"] }
 tower = "0.5.2"
 http = "1.2.0"
 http-body = "1.0.1"
