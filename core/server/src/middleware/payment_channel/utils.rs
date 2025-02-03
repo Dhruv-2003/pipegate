@@ -1,52 +1,50 @@
+use crate::{
+    error::AuthError,
+    middleware::payment_channel::types::{PaymentChannel, SignedRequest},
+};
+
 use alloy::{
+    dyn_abi::DynSolValue,
     hex::{self},
-    primitives::{Address, FixedBytes, PrimitiveSignature, U256},
+    primitives::{keccak256, PrimitiveSignature, U256},
 };
+use axum::{body::Body, http::Response};
 use http::HeaderMap;
-use std::{
-    str::FromStr,
-    time::{SystemTime, UNIX_EPOCH},
-};
 
-use axum::{
-    body::Body,
-    http::{Response, StatusCode},
-};
-
-use crate::types::{tx::SignedStream, PaymentChannel, SignedPaymentTx, SignedRequest};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 pub async fn parse_headers(
     headers: &HeaderMap,
     body_bytes: Vec<u8>,
     payment_amount: U256,
-) -> Result<SignedRequest, StatusCode> {
+) -> Result<SignedRequest, AuthError> {
     // parse the request to retrieve the required headers
     let timestamp = headers
         .get("X-Timestamp")
         .and_then(|t| t.to_str().ok())
         .and_then(|t| t.parse::<u64>().ok())
-        .ok_or(StatusCode::BAD_REQUEST)?;
+        .ok_or(AuthError::MissingHeaders)?;
 
     println!("Timestamp: {}", timestamp);
 
     // Get and validate all required headers
     let signature = headers
         .get("X-Signature")
-        .ok_or(StatusCode::UNAUTHORIZED)?
+        .ok_or(AuthError::MissingHeaders)?
         .to_str()
-        .map_err(|_| StatusCode::BAD_REQUEST)?;
+        .map_err(|_| AuthError::InvalidHeaders)?;
 
     let message = headers
         .get("X-Message")
-        .ok_or(StatusCode::UNAUTHORIZED)?
+        .ok_or(AuthError::MissingHeaders)?
         .to_str()
-        .map_err(|_| StatusCode::BAD_REQUEST)?;
+        .map_err(|_| AuthError::InvalidHeaders)?;
 
     let payment_data = headers
         .get("X-Payment")
-        .ok_or(StatusCode::UNAUTHORIZED)?
+        .ok_or(AuthError::MissingHeaders)?
         .to_str()
-        .map_err(|_| StatusCode::BAD_REQUEST)?;
+        .map_err(|_| AuthError::InvalidHeaders)?;
 
     // Print all the headers
     println!("Signature: {}", signature);
@@ -57,25 +55,25 @@ pub async fn parse_headers(
     let signature = hex::decode(signature.trim_start_matches("0x"))
         .map_err(|_| {
             println!("Failed: Signature decode");
-            StatusCode::BAD_REQUEST
+            AuthError::InvalidSignature
         })
         .and_then(|bytes| {
             PrimitiveSignature::try_from(bytes.as_slice()).map_err(|_| {
                 println!("Failed: Signature conversion");
-                StatusCode::BAD_REQUEST
+                AuthError::InvalidSignature
             })
         })?;
 
     // Parse message
     let message = hex::decode(message).map_err(|_| {
         println!("Failed: Message decode");
-        StatusCode::BAD_REQUEST
+        AuthError::InvalidMessage
     })?;
 
     // Parse payment channel data
     let payment_channel: PaymentChannel = serde_json::from_str(payment_data).map_err(|e| {
         println!("Failed: Payment data decode - Error {}", e);
-        StatusCode::BAD_REQUEST
+        AuthError::InvalidChannel
     })?;
 
     println!("Body: {}", String::from_utf8_lossy(&body_bytes));
@@ -140,78 +138,22 @@ pub async fn modify_headers<B>(
     response
 }
 
-pub async fn parse_tx_headers_axum(headers: &HeaderMap) -> Result<SignedPaymentTx, StatusCode> {
-    let signature = headers
-        .get("X-Signature")
-        .ok_or(StatusCode::UNAUTHORIZED)?
-        .to_str()
-        .map_err(|_| StatusCode::BAD_REQUEST)?;
+pub fn create_channel_message(
+    channel_id: U256,
+    balance: U256,
+    nonce: U256,
+    body: &[u8],
+) -> Vec<u8> {
+    let message = DynSolValue::Tuple(vec![
+        DynSolValue::Uint(channel_id, 256),
+        DynSolValue::Uint(balance, 256),
+        DynSolValue::Uint(nonce, 256),
+        DynSolValue::Bytes(body.to_vec()),
+    ]);
 
-    let signature = hex::decode(signature.trim_start_matches("0x"))
-        .map_err(|_| {
-            println!("Failed: Signature decode");
-            StatusCode::BAD_REQUEST
-        })
-        .and_then(|bytes| {
-            PrimitiveSignature::try_from(bytes.as_slice()).map_err(|_| {
-                println!("Failed: Signature conversion");
-                StatusCode::BAD_REQUEST
-            })
-        })?;
+    let encoded_message = message.abi_encode_packed();
 
-    let tx_hash = headers
-        .get("X-Transaction")
-        .ok_or(StatusCode::UNAUTHORIZED)?
-        .to_str()
-        .map_err(|_| StatusCode::BAD_REQUEST)?;
+    let hashed_message = keccak256(&encoded_message);
 
-    let tx_hash = hex::decode(tx_hash).map_err(|_| {
-        println!("Failed: Message decode");
-        StatusCode::BAD_REQUEST
-    })?;
-
-    let signed_tx = SignedPaymentTx {
-        signature,
-        tx_hash: FixedBytes::<32>::from_slice(&tx_hash),
-    };
-
-    Ok(signed_tx)
-}
-
-pub async fn parse_stream_headers(headers: &HeaderMap) -> Result<SignedStream, StatusCode> {
-    let signature = headers
-        .get("X-Signature")
-        .ok_or(StatusCode::UNAUTHORIZED)?
-        .to_str()
-        .map_err(|_| StatusCode::BAD_REQUEST)?;
-
-    let signature = hex::decode(signature.trim_start_matches("0x"))
-        .map_err(|_| {
-            println!("Failed: Signature decode");
-            StatusCode::BAD_REQUEST
-        })
-        .and_then(|bytes| {
-            PrimitiveSignature::try_from(bytes.as_slice()).map_err(|_| {
-                println!("Failed: Signature conversion");
-                StatusCode::BAD_REQUEST
-            })
-        })?;
-
-    let sender = headers
-        .get("X-Sender")
-        .ok_or(StatusCode::UNAUTHORIZED)?
-        .to_str()
-        .map_err(|_| StatusCode::BAD_REQUEST)?;
-
-    let sender = Address::from_str(sender).map_err(|_| {
-        println!("Failed: Sender conversion");
-        StatusCode::BAD_REQUEST
-    })?;
-
-    let signed_tx = SignedStream {
-        signature,
-        sender: sender,
-    };
-
-    Ok(signed_tx)
+    hashed_message.to_vec()
 }

@@ -3,30 +3,21 @@ use std::{env, str::FromStr};
 use alloy::primitives::{Address, Bytes, U256};
 use axum::{routing::get, Router};
 
-use pipegate::{
-    channel::{close_channel, ChannelState},
-    types::PaymentChannel,
-};
-
 #[cfg(not(target_arch = "wasm32"))]
 #[tokio::main]
 pub async fn main() {
     use alloy::primitives::aliases::I96;
-    use axum::middleware;
-    use pipegate::{
-        middleware::{
-            onetime_payment_auth_middleware, superfluid_streams_auth_middleware,
-            OneTimePaymentMiddlewareState, PipegateMiddlewareLayer,
-            SuperfluidStreamsMiddlewareState,
-        },
-        types::{tx::StreamsConfig, OneTimePaymentConfig},
+
+    use pipegate::middleware::{
+        one_time_payment::{types::OneTimePaymentConfig, OnetimePaymentMiddlewareLayer},
+        payment_channel::{channel::ChannelState, PipegateMiddlewareLayer},
+        stream_payment::{types::StreamsConfig, StreamMiddlewareLayer},
     };
 
     // a mock server implementation using axum
     // build our application with a route
-
     // add middleware we created for protecting routes
-    // Create a new instance of our state
+
     let rpc_url: alloy::transports::http::reqwest::Url =
         "https://base-sepolia-rpc.publicnode.com".parse().unwrap();
 
@@ -34,6 +25,7 @@ pub async fn main() {
     // E.g. if USDC is being used 1USDC = 1000000 after 6 decimal places in case of the USDC token
     let payment_amount = U256::from(1000); // 0.001 USDC in this case
 
+    // Create a new instance of our state
     let state = ChannelState::new(rpc_url.clone());
 
     let onetime_payment_config = OneTimePaymentConfig {
@@ -44,10 +36,6 @@ pub async fn main() {
         rpc_url: rpc_url.to_string(),
     };
 
-    let onetime_state = OneTimePaymentMiddlewareState {
-        config: onetime_payment_config,
-    };
-
     let stream_payment_config = StreamsConfig {
         recipient: Address::from_str("0x62c43323447899acb61c18181e34168903e033bf").unwrap(),
         token_address: Address::from_str("0x1650581f573ead727b92073b5ef8b4f5b94d1648").unwrap(),
@@ -56,31 +44,48 @@ pub async fn main() {
         rpc_url: rpc_url.to_string(),
     };
 
-    let stream_state = SuperfluidStreamsMiddlewareState {
-        config: stream_payment_config,
-    };
-
     let app = Router::new()
         .route(
             "/",
-            get(root).route_layer(PipegateMiddlewareLayer::new(state.clone(), payment_amount)),
+            get(root).route_layer(PipegateMiddlewareLayer::new(
+                state.clone(),
+                payment_amount,
+                true,
+            )),
         )
         .route(
             "/one-time",
-            get(one_time).route_layer(middleware::from_fn_with_state(
-                onetime_state,
-                onetime_payment_auth_middleware,
-            )),
+            get(one_time).route_layer(OnetimePaymentMiddlewareLayer::new(onetime_payment_config)),
         )
         .route(
             "/stream",
-            get(stream).route_layer(middleware::from_fn_with_state(
-                stream_state,
-                superfluid_streams_auth_middleware,
-            )),
+            get(stream).route_layer(StreamMiddlewareLayer::new(stream_payment_config)),
         );
 
-    // run our server on localhost:3000
+    // let app = Router::new()
+    //     .route(
+    //         "/",
+    //         get(root).route_layer(middleware::from_fn_with_state(
+    //             payment_channel_state,
+    //             payment_channel_auth_fn_middleware,
+    //         )),
+    //     )
+    //     .route(
+    //         "/one-time",
+    //         get(one_time).route_layer(middleware::from_fn_with_state(
+    //             onetime_state,
+    //             onetime_payment_auth_fn_middleware,
+    //         )),
+    //     )
+    //     .route(
+    //         "/stream",
+    //         get(stream).route_layer(middleware::from_fn_with_state(
+    //             stream_state,
+    //             superfluid_streams_auth_fn_middleware,
+    //         )),
+    //     );
+
+    // Run our server on localhost:3000
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
     axum::serve(listener, app).await.unwrap();
 
@@ -98,6 +103,11 @@ async fn one_time() -> &'static str {
 async fn stream() -> &'static str {
     "Stream Payment Authenticated"
 }
+
+use pipegate::middleware::payment_channel::{
+    channel::{close_channel, ChannelState},
+    types::PaymentChannel,
+};
 
 #[cfg(not(target_arch = "wasm32"))]
 pub async fn close_and_withdraw(_state: &ChannelState) {
