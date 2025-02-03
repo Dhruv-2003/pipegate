@@ -1,8 +1,10 @@
+pub mod listener;
+pub mod state;
 pub mod types;
 pub mod utils;
 pub mod verify;
 
-use std::{future::Future, pin::Pin};
+use std::{future::Future, pin::Pin, time::SystemTime};
 
 use axum::{
     body::Body,
@@ -12,9 +14,11 @@ use axum::{
     response::{IntoResponse, Response},
 };
 
+use listener::StreamListner;
+use state::StreamState;
 use tower::{Layer, Service};
 
-use types::StreamsConfig;
+pub use types::{Stream, StreamsConfig};
 
 use utils::parse_stream_headers;
 use verify::verify_stream;
@@ -26,12 +30,18 @@ use crate::error::AuthError;
 #[cfg(not(target_arch = "wasm32"))]
 pub struct StreamMiddlewareLayer {
     pub config: StreamsConfig,
+    pub state: StreamState,
+    pub listener: StreamListner,
 }
 
 #[cfg(not(target_arch = "wasm32"))]
 impl StreamMiddlewareLayer {
-    pub fn new(config: StreamsConfig) -> Self {
-        Self { config }
+    pub fn new(config: StreamsConfig, state: StreamState, listener: StreamListner) -> Self {
+        Self {
+            config,
+            state,
+            listener,
+        }
     }
 }
 
@@ -41,8 +51,10 @@ impl<S> Layer<S> for StreamMiddlewareLayer {
 
     fn layer(&self, service: S) -> Self::Service {
         StreamMiddleware {
-            config: self.config.clone(),
             inner: service,
+            config: self.config.clone(),
+            state: self.state.clone(),
+            _listener: self.listener.clone(),
         }
     }
 }
@@ -52,6 +64,8 @@ impl<S> Layer<S> for StreamMiddlewareLayer {
 pub struct StreamMiddleware<S> {
     inner: S,
     config: StreamsConfig,
+    state: StreamState,
+    _listener: StreamListner,
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -74,6 +88,7 @@ where
     fn call(&mut self, request: Request<Body>) -> Self::Future {
         let config = self.config.clone();
         let mut inner = self.inner.clone();
+        let state = self.state.clone();
 
         // #[cfg(not(target_arch = "wasm32"))]
         Box::pin(async move {
@@ -85,7 +100,24 @@ where
                 Err(e) => return Ok(e.into_response()),
             };
 
-            let verify = match verify_stream(signed_stream, config).await {
+            // Check if stream was already verified earlier
+            if let Some(stream) = state.get(signed_stream.sender).await {
+                if stream.last_verified > 0 {
+                    let timestamp = SystemTime::now()
+                        .duration_since(SystemTime::UNIX_EPOCH)
+                        .unwrap()
+                        .as_secs();
+
+                    if timestamp - stream.last_verified < config.cache_time {
+                        println!("Verified");
+                        println!("=== end middleware check ===");
+
+                        return inner.call(request).await;
+                    }
+                }
+            }
+
+            let verify = match verify_stream(signed_stream.clone(), config.clone()).await {
                 Ok(v) => v,
                 Err(e) => return Ok(e.into_response()),
             };
@@ -93,6 +125,24 @@ where
             if verify {
                 println!("Verified");
                 println!("=== end middleware check ===");
+
+                let timestamp = SystemTime::now()
+                    .duration_since(SystemTime::UNIX_EPOCH)
+                    .unwrap()
+                    .as_secs();
+
+                // Add the verified stream to the record
+                let stream = Stream {
+                    sender: signed_stream.sender,
+                    recipient: config.recipient,
+                    token_address: config.token_address,
+                    flow_rate: config.amount,
+                    last_verified: timestamp,
+                };
+
+                state.set(signed_stream.sender, stream).await;
+
+                // start the inner subscribe/listener service for events of this sender
 
                 inner.call(request).await
             } else {
@@ -108,6 +158,7 @@ where
 #[derive(Clone)]
 pub struct SuperfluidStreamsFnMiddlewareState {
     pub config: StreamsConfig,
+    pub state: StreamState,
 }
 
 pub async fn superfluid_streams_auth_fn_middleware(

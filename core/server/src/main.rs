@@ -11,7 +11,10 @@ pub async fn main() {
     use pipegate::middleware::{
         one_time_payment::{types::OneTimePaymentConfig, OnetimePaymentMiddlewareLayer},
         payment_channel::{channel::ChannelState, PipegateMiddlewareLayer},
-        stream_payment::{types::StreamsConfig, StreamMiddlewareLayer},
+        stream_payment::{
+            listener::StreamListner, state::StreamState, types::StreamsConfig,
+            StreamMiddlewareLayer,
+        },
     };
 
     // a mock server implementation using axum
@@ -36,13 +39,19 @@ pub async fn main() {
         rpc_url: rpc_url.to_string(),
     };
 
+    let stream_state = StreamState::new();
+
     let stream_payment_config = StreamsConfig {
         recipient: Address::from_str("0x62c43323447899acb61c18181e34168903e033bf").unwrap(),
         token_address: Address::from_str("0x1650581f573ead727b92073b5ef8b4f5b94d1648").unwrap(),
         amount: "761035007610".parse::<I96>().unwrap(), // 2 USDC per month
         cfa_forwarder: Address::from_str("0xcfA132E353cB4E398080B9700609bb008eceB125").unwrap(),
         rpc_url: rpc_url.to_string(),
+        cache_time: 900,
     };
+
+    let stream_listener =
+        StreamListner::new(stream_state.clone(), stream_payment_config.clone()).await;
 
     let app = Router::new()
         .route(
@@ -59,7 +68,11 @@ pub async fn main() {
         )
         .route(
             "/stream",
-            get(stream).route_layer(StreamMiddlewareLayer::new(stream_payment_config)),
+            get(stream).route_layer(StreamMiddlewareLayer::new(
+                stream_payment_config,
+                stream_state,
+                stream_listener,
+            )),
         );
 
     // let app = Router::new()

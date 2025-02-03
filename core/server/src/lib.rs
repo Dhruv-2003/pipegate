@@ -60,6 +60,7 @@ mod tests {
             amount: "761035007610".parse::<I96>().unwrap(), // 2 USDC per month
             cfa_forwarder: Address::from_str("0xcfA132E353cB4E398080B9700609bb008eceB125").unwrap(),
             rpc_url: rpc_url.to_string(),
+            cache_time: 900,
         };
 
         let signed_stream = SignedStream {
@@ -84,6 +85,7 @@ mod tests {
             amount: "761035007610".parse::<I96>().unwrap(), // 2 USDC per month
             cfa_forwarder: Address::from_str("0xcfA132E353cB4E398080B9700609bb008eceB125").unwrap(),
             rpc_url: rpc_url.to_string(),
+            cache_time: 900,
         };
 
         let signed_stream = SignedStream {
