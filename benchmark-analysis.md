@@ -49,3 +49,8 @@
 - **Scalability**: This approach requires external payment processors to handle each request, and each call to Stripe is an external network call that could fail or be delayed. While Stripe handles large-scale payment services well, for microservices where you have high API call volumes, you might face rate limitations.
 
 ---
+
+### **Optimisations:**
+
+- **Caching**: The verified addresses are cacehd into an in memory store to reduce the verification time after the first call, reducing the latency to sub 50ms.
+- **Listener**: To mitigate the issue of user cancelling or modifying the subscription, on chain event listener is attached that listens to the subscription events and updates the cache accordingly.
