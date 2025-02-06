@@ -63,55 +63,44 @@ impl StreamListner {
         print!("Subscribed to logs");
 
         while let Ok(log) = sub.recv().await {
-            println!("Received event: {:?}", log);
+            println!("Received event: ");
 
             if let Some(sender_topic) = log.topics().get(2) {
                 let sender = Address::from_slice(&sender_topic.0[12..]);
-                println!("Sender: {:?}", sender);
                 // check if the sender is in the stream state
 
                 if let Some(_stream) = state.get(sender).await {
-                    println!("Sender in cache");
+                    println!("Event sender in cache");
+                    println!("Sender: {:?}", sender);
                     // check the stream flow rate and if it has changed other than the config amount, invalidate state
 
-                    // let data = &log.data().data[0..31];
-                    let data = &log.data().data;
-                    // println!("Data: {:?}", data);
-                    // let data_type = DynSolType::Int(96);
-                    let data_type = DynSolType::Tuple(vec![
-                        DynSolType::Int(96),
-                        DynSolType::Int(256),
-                        DynSolType::Int(256),
-                        DynSolType::Bytes,
-                    ]);
+                    let data = &log.data().data[0..32];
+                    let data_type = DynSolType::Int(96);
 
                     let decoded = match data_type.abi_decode(data) {
                         Ok(decoded) => decoded,
                         Err(e) => {
-                            // println!("Error decoding data: {:?}", e);
+                            println!("Error decoding data: {:?}", e);
                             continue; // Skipping this event instead of breaking
                         }
                     };
 
-                    println!("Decoded data: {:?}", decoded);
+                    // println!("Decoded data: {:?}", decoded);
 
-                    if let Some(values) = decoded.as_tuple() {
-                        let (flow_rate, _) = match values[0].as_int() {
-                            Some(flow_rate) => flow_rate,
-                            None => {
-                                // println!("Error parsing flow rate");
-                                // return Err("Error parsing flow rate".to_string());
-                                continue;
-                            }
-                        };
-
-                        println!("Updated Flow rate: {:?}", flow_rate);
-
-                        if flow_rate.as_i64() != config.amount.as_i64() {
-                            println!("Invalidating stream");
-                            state.invalidate(sender).await;
+                    let (flow_rate, _) = match decoded.as_int() {
+                        Some(flow_rate) => flow_rate,
+                        None => {
+                            println!("Error parsing flow rate");
+                            continue;
                         }
                     };
+
+                    println!("Updated Flow rate for the sender: {:?}", flow_rate);
+
+                    if flow_rate.as_i64() != config.amount.as_i64() {
+                        println!("Invalidating stream as stream modified or cancelled");
+                        state.invalidate(sender).await;
+                    }
                 }
             }
         }

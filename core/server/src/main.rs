@@ -74,6 +74,7 @@ pub async fn main() {
             )),
         );
 
+    // another example with middleware based on fn with state method
     // let app = Router::new()
     //     .route(
     //         "/",
