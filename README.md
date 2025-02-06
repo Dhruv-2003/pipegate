@@ -130,7 +130,7 @@ With this project, we've tried to make the complex payment channel system comple
 
 2. **Make API calls**
 
-   - Use the client-side SDK to add interceptor to your axios instance with this [sdk](https://github.com/Dhruv-2003/pipegate/blob/main/core/client/README.md#making-api-calls-with-superfluid-streams-method)
+   - Use the client-side SDK to add interceptor to your axios instance with this [sdk](https://github.com/Dhruv-2003/pipegate/blob/main/core/server/README.md#simple-server-implementation-for-stream-middleware)
 
 ## Team
 

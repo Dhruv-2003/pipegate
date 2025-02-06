@@ -98,17 +98,16 @@ pub async fn main() {
     //     );
 
     // Run our server on localhost:3000
-    let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
+    let listener = tokio::net::TcpListener::bind("0.0.0.0:8000").await.unwrap();
     let stream_listener = tokio::spawn(async move {
         println!("Spawning event listener ...");
-        // let _ = StreamListner::start(stream_state_clone, stream_payment_config_clone).await;
         if let Err(e) = StreamListner::start(stream_state_clone, stream_payment_config_clone).await
         {
             eprintln!("Event listener error: {:?}", e);
         }
     });
     axum::serve(listener, app).await.unwrap();
-    println!("Listening on: http://localhost:3000");
+    println!("Listening on: http://localhost:8000");
 
     stream_listener.await.unwrap();
 }
