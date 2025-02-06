@@ -122,6 +122,11 @@ With this project, we've tried to make the complex payment channel system comple
 1. **Create a stream**
 
    - Create a stream to the API provider's address using the superfluid [app](https://app.superfluid.finance/send)
+   - Or just use the following command from your terminal to start a stream with the provider's address
+
+   ```bash
+   cast send 0xcfA132E353cB4E398080B9700609bb008eceB125 "createFlow(address token,address sender,address receiver,int96 flowrate,bytes userData)" 0xtoken 0xsender 0xreceiver flow 0x
+   ```
 
 2. **Make API calls**
 
