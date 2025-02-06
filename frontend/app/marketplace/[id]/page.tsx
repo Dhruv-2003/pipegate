@@ -35,6 +35,9 @@ export default function APIDetails({ params }: APIDetailsProps) {
           </CardHeader>
           <CardContent>
             <p className="mb-4">{api.pricing}</p>
+            <Badge variant="secondary" className="mb-4 text-base">
+              {api.paymentPlan}
+            </Badge>
             <Button className="w-full">Subscribe</Button>
           </CardContent>
         </Card>

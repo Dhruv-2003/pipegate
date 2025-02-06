@@ -1,3 +1,5 @@
+import { PaymentMethods } from "./types";
+
 export const mockAPIData = [
   {
     id: "weather-api",
@@ -7,6 +9,7 @@ export const mockAPIData = [
       "Get accurate weather forecasts, current conditions, and historical data for any location worldwide. Our API provides comprehensive meteorological information including temperature, humidity, wind speed, and more.",
     rating: 4.5,
     pricing: "Starting at $0.01 per call",
+    paymentPlan: PaymentMethods.OnDemand,
     endpoints: [
       { method: "GET", path: "/current/{city}" },
       { method: "GET", path: "/forecast/{city}" },
@@ -21,6 +24,7 @@ export const mockAPIData = [
       "Access up-to-the-minute pricing data for hundreds of cryptocurrencies. Our API provides real-time and historical price information, market cap data, and trading volume for major exchanges.",
     rating: 4.8,
     pricing: "Free tier available, premium plans start at $50/month",
+    paymentPlan: PaymentMethods.Stream,
     endpoints: [
       { method: "GET", path: "/price/{coin}" },
       { method: "GET", path: "/marketcap/{coin}" },
