@@ -12,14 +12,14 @@ pub async fn main() {
         one_time_payment::{types::OneTimePaymentConfig, OnetimePaymentMiddlewareLayer},
         payment_channel::{channel::ChannelState, PipegateMiddlewareLayer},
         stream_payment::{
-            listener::StreamListner, state::StreamState, types::StreamsConfig,
-            StreamMiddlewareLayer,
+            state::StreamState, types::StreamsConfig, StreamListner, StreamMiddlewareLayer,
         },
     };
 
     // a mock server implementation using axum
     // build our application with a route
     // add middleware we created for protecting routes
+    println!("Starting server...");
 
     let rpc_url: alloy::transports::http::reqwest::Url =
         "https://base-sepolia-rpc.publicnode.com".parse().unwrap();
@@ -50,8 +50,8 @@ pub async fn main() {
         cache_time: 900,
     };
 
-    let stream_listener =
-        StreamListner::new(stream_state.clone(), stream_payment_config.clone()).await;
+    let stream_state_clone = stream_state.clone();
+    let stream_payment_config_clone = stream_payment_config.clone();
 
     let app = Router::new()
         .route(
@@ -71,7 +71,6 @@ pub async fn main() {
             get(stream).route_layer(StreamMiddlewareLayer::new(
                 stream_payment_config,
                 stream_state,
-                stream_listener,
             )),
         );
 
@@ -100,9 +99,18 @@ pub async fn main() {
 
     // Run our server on localhost:3000
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
+    let stream_listener = tokio::spawn(async move {
+        println!("Spawning event listener ...");
+        // let _ = StreamListner::start(stream_state_clone, stream_payment_config_clone).await;
+        if let Err(e) = StreamListner::start(stream_state_clone, stream_payment_config_clone).await
+        {
+            eprintln!("Event listener error: {:?}", e);
+        }
+    });
     axum::serve(listener, app).await.unwrap();
-
     println!("Listening on: http://localhost:3000");
+
+    stream_listener.await.unwrap();
 }
 
 async fn root() -> &'static str {

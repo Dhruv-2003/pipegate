@@ -221,15 +221,20 @@ async function testStreamInterceptors() {
 
 // Run test
 async function main() {
-  testPaymentChannelInterceptors()
-    .then(() => console.log("\nTest completed"))
-    .catch(console.error);
+  // testPaymentChannelInterceptors()
+  //   .then(() => console.log("\nTest completed"))
+  //   .catch(console.error);
   // testOnetimePaymentInterceptors()
   //   .then(() => console.log("\nTest completed"))
   //   .catch(console.error);
-  // testStreamInterceptors()
-  //   .then(() => console.log("\nTest completed"))
-  //   .catch(console.error);
+  let start = performance.now();
+  testStreamInterceptors()
+    .then(() => {
+      console.log("\nTest completed");
+      let end = performance.now();
+      console.log("Time taken: ", end - start, "ms");
+    })
+    .catch(console.error);
 }
 
 main();

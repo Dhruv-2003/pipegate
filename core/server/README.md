@@ -59,7 +59,7 @@ async fn root() -> &'static str {
 ```rust
 use alloy::{primitives::{U256,Address}};
 use axum::{routing::get, Router};
-use pipegate::{middleware::{onetime_payment_auth_middleware, OneTimePaymentMiddlewareState},types::OneTimePaymentConfig,};
+use pipegate::{middleware::{OnetimePaymentMiddlewareLayer},types::OneTimePaymentConfig,};
 
 #[tokio::main]
 async fn main() {
@@ -75,17 +75,10 @@ async fn main() {
         rpc_url: rpc_url.to_string(),
     };
 
-    let onetime_state = OneTimePaymentMiddlewareState {
-        config: onetime_payment_config,
-    };
-
     // Create router with middleware
     let app = Router::new()
         .route("/", get(root))
-        .layer(middleware::from_fn_with_state(
-                onetime_state,
-                onetime_payment_auth_middleware,
-            ));
+        .layer(OnetimePaymentMiddlewareLayer::new(onetime_payment_config));
 
     // Start server
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
@@ -102,7 +95,7 @@ async fn root() -> &'static str {
 ```rust
 use alloy::{primitives::{U256,Address}};
 use axum::{routing::get, Router};
-use pipegate::{middleware::{superfluid_streams_auth_middleware,SuperfluidStreamsMiddlewareState},types::tx::StreamsConfig};
+use pipegate::{middleware::{StreamMiddlewareLayer,StreamState},types::tx::StreamsConfig};
 
 #[tokio::main]
 async fn main() {
@@ -118,17 +111,12 @@ async fn main() {
         rpc_url: rpc_url.to_string(),
     };
 
-    let stream_state = SuperfluidStreamsMiddlewareState {
-        config: stream_payment_config,
-    };
+    let stream_state = StreamState::new();
 
     // Create router with middleware
     let app = Router::new()
         .route("/", get(root))
-        .layer(middleware::from_fn_with_state(
-                stream_state,
-                superfluid_streams_auth_middleware,
-            ));
+        .layer(StreamMiddlewareLayer::new(stream_payment_config,stream_state));
 
     // Start server
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();

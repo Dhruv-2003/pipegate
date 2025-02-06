@@ -14,7 +14,7 @@ use axum::{
     response::{IntoResponse, Response},
 };
 
-use listener::StreamListner;
+pub use listener::StreamListner;
 use state::StreamState;
 use tower::{Layer, Service};
 
@@ -31,17 +31,12 @@ use crate::error::AuthError;
 pub struct StreamMiddlewareLayer {
     pub config: StreamsConfig,
     pub state: StreamState,
-    pub listener: StreamListner,
 }
 
 #[cfg(not(target_arch = "wasm32"))]
 impl StreamMiddlewareLayer {
-    pub fn new(config: StreamsConfig, state: StreamState, listener: StreamListner) -> Self {
-        Self {
-            config,
-            state,
-            listener,
-        }
+    pub fn new(config: StreamsConfig, state: StreamState) -> Self {
+        Self { config, state }
     }
 }
 
@@ -54,7 +49,6 @@ impl<S> Layer<S> for StreamMiddlewareLayer {
             inner: service,
             config: self.config.clone(),
             state: self.state.clone(),
-            _listener: self.listener.clone(),
         }
     }
 }
@@ -65,7 +59,6 @@ pub struct StreamMiddleware<S> {
     inner: S,
     config: StreamsConfig,
     state: StreamState,
-    _listener: StreamListner,
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -109,7 +102,7 @@ where
                         .as_secs();
 
                     if timestamp - stream.last_verified < config.cache_time {
-                        println!("Verified");
+                        println!("Stream already verified, in Cache!");
                         println!("=== end middleware check ===");
 
                         return inner.call(request).await;
