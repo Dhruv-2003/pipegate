@@ -5,15 +5,16 @@
 - OnChain verification with 1 RPC call: 300-900 ms
 - Other parsing headers and extraction, etc: 100 us
 
-- Total middleware time: 305-905 ms
+- Total middleware time: 305-905 ms (only for the first call, subsequent calls will be faster due to caching)
+- Subsequent calls time (with caching): (30-50) ms
 
 ### **Comparison and Key Latency Breakdown:**
 
-| **Method**                        | **Time for Auth (ms)** | **Time for Payment Verification (ms)** | **Total Time per Request (ms)** | **Setup & Cost**                      |
-| --------------------------------- | ---------------------- | -------------------------------------- | ------------------------------- | ------------------------------------- |
-| **Your Approach (Decentralized)** | 2-3                    | 300-900 (on-chain verification)        | 302-903                         | Simple & zero extra cost              |
-| **Custom Auth (Internal DB)**     | 5-100                  | N/A                                    | 5-100                           | Complex & low to moderate cost        |
-| **Stripe + Custom Backend**       | 50-200                 | 100-500 (Stripe API)                   | 150-700                         | Can be complex & 2-4% of total-amount |
+| **Method**                            | **Time for Auth (ms)** | **Time for Payment Verification (ms)** | **Total Time per Request (ms)** | **Setup & Cost**                      |
+| ------------------------------------- | ---------------------- | -------------------------------------- | ------------------------------- | ------------------------------------- |
+| **Pipegate Approach (Decentralized)** | 2-3                    | 300-900 (on-chain verification)        | 302-903                         | Simple & zero extra cost              |
+| **Custom Auth (Internal DB)**         | 5-100                  | N/A                                    | 5-100                           | Complex & low to moderate cost        |
+| **Stripe + Custom Backend**           | 50-200                 | 100-500 (Stripe API)                   | 150-700                         | Can be complex & 2-4% of total-amount |
 
 ---
 
@@ -34,7 +35,7 @@
    - **Database Query**: The API key lookup requires a database query to verify subscription status, usage limits, etc. This can be relatively fast, depending on the database.
 
 - **Latency**: The main limiting factor here is **database query time** which can take anywhere from **5ms to 100ms** depending on the database and load. If you're using an optimized in-memory store (like Redis), it could be much faster. But if you're querying a traditional relational database, the time could increase due to I/O operations.If you have an API gateway or load balancer, it could add an additional **5ms to 20ms**.
-- **Scalability**: With high traffic, you'd need to ensure your database is properly indexed and can handle the request volume. Adding more API keys means scaling your database solution as well.**sharding** and **distributed databases** might be necessary, which can add complexity.
+- **Scalability**: With high traffic, you'd need to ensure the database is properly indexed and can handle the request volume. Adding more API keys means scaling the database solution as well.**sharding** and **distributed databases** might be necessary, which can add complexity.
 
 3. **Stripe + Backend**:
 
