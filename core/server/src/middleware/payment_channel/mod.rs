@@ -7,8 +7,6 @@ mod extractors;
 
 use std::{future::Future, pin::Pin};
 
-use alloy::primitives::U256;
-
 use axum::{
     body::Body,
     extract::State,
@@ -24,6 +22,7 @@ use tower::{Layer, Service};
 
 use channel::ChannelState;
 
+use types::PaymentChannelConfig;
 use utils::{modify_headers_axum, parse_headers};
 use verify::verify_and_update_channel;
 
@@ -32,48 +31,41 @@ use crate::error::AuthError;
 //* PAYMENT CHANNEL MIDDLEWARE LOGIC */
 #[derive(Clone)]
 #[cfg(not(target_arch = "wasm32"))]
-pub struct PipegateMiddlewareLayer {
-    state: ChannelState,
-    payment_amount: U256,
-    is_rate_limited: bool,
+pub struct PaymentChannelMiddlewareLayer {
+    pub state: ChannelState,
+    pub config: PaymentChannelConfig,
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-impl PipegateMiddlewareLayer {
-    pub fn new(state: ChannelState, payment_amount: U256, is_rate_limited: bool) -> Self {
-        Self {
-            state,
-            payment_amount,
-            is_rate_limited,
-        }
+impl PaymentChannelMiddlewareLayer {
+    pub fn new(state: ChannelState, config: PaymentChannelConfig) -> Self {
+        Self { state, config }
     }
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-impl<S> Layer<S> for PipegateMiddlewareLayer {
-    type Service = PipegateMiddleware<S>;
+impl<S> Layer<S> for PaymentChannelMiddlewareLayer {
+    type Service = PaymentChannelMiddleware<S>;
 
     fn layer(&self, service: S) -> Self::Service {
-        PipegateMiddleware {
+        PaymentChannelMiddleware {
             state: self.state.clone(),
-            payment_amount: self.payment_amount,
+            config: self.config.clone(),
             inner: service,
-            is_rate_limited: self.is_rate_limited,
         }
     }
 }
 
 #[derive(Clone)]
 #[cfg(not(target_arch = "wasm32"))]
-pub struct PipegateMiddleware<S> {
+pub struct PaymentChannelMiddleware<S> {
     inner: S,
     state: ChannelState,
-    payment_amount: U256,
-    is_rate_limited: bool,
+    config: PaymentChannelConfig,
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-impl<S> Service<Request<Body>> for PipegateMiddleware<S>
+impl<S> Service<Request<Body>> for PaymentChannelMiddleware<S>
 where
     S: Service<Request<Body>, Response = Response> + Clone + Send + 'static,
     S::Future: Send + 'static,
@@ -92,8 +84,8 @@ where
 
     fn call(&mut self, request: Request<Body>) -> Self::Future {
         let state = self.state.clone();
-        let payment_amount = self.payment_amount;
-        let is_rate_limited = self.is_rate_limited;
+        let config = self.config.clone();
+        let payment_amount = self.config.clone().amount;
         let mut inner = self.inner.clone();
 
         // #[cfg(not(target_arch = "wasm32"))]
@@ -123,24 +115,10 @@ where
                     }
                 };
 
-            if is_rate_limited {
-                // Check for rate limiting
-                match state
-                    .check_rate_limit(signed_request.payment_channel.sender)
-                    .await
-                {
-                    Ok(_) => (),
-                    Err(e) => {
-                        println!("Failed: Rate limit check");
-                        return Ok(e.into_response());
-                    }
-                }
-            }
-
             let body_bytes = signed_request.body_bytes.clone();
             // Validate the headers against the payment channel state and return the response
             let (updated_channel, verify) =
-                match verify_and_update_channel(&state, signed_request).await {
+                match verify_and_update_channel(&state, &config, signed_request).await {
                     Ok((updated_channel, verify)) => (updated_channel, verify),
                     Err(e) => {
                         println!("Failed: Verify and update channel");
@@ -172,8 +150,7 @@ where
 #[derive(Clone)]
 pub struct PaymentChannelFnMiddlewareState {
     state: ChannelState,
-    payment_amount: U256,
-    is_rate_limited: bool,
+    config: PaymentChannelConfig,
 }
 
 pub async fn payment_channel_auth_fn_middleware(
@@ -197,7 +174,7 @@ pub async fn payment_channel_auth_fn_middleware(
     };
 
     let signed_request =
-        match parse_headers(&parts.headers, body_bytes.to_vec(), state.payment_amount).await {
+        match parse_headers(&parts.headers, body_bytes.to_vec(), state.config.amount).await {
             Ok(signed_request) => signed_request,
             Err(e) => {
                 println!("Failed: Parse headers");
@@ -205,25 +182,10 @@ pub async fn payment_channel_auth_fn_middleware(
             }
         };
 
-    if state.is_rate_limited {
-        // Check for rate limiting
-        match state
-            .state
-            .check_rate_limit(signed_request.payment_channel.sender)
-            .await
-        {
-            Ok(_) => (),
-            Err(e) => {
-                println!("Failed: Rate limit check");
-                return Ok(e.into_response());
-            }
-        };
-    }
-
     let body_bytes = signed_request.body_bytes.clone();
     // Validate the headers against the payment channel state and return the response
     let (updated_channel, verify) =
-        match verify_and_update_channel(&state.state, signed_request).await {
+        match verify_and_update_channel(&state.state, &state.config, signed_request).await {
             Ok((updated_channel, verify)) => (updated_channel, verify),
             Err(e) => {
                 println!("Failed: Verify and update channel");

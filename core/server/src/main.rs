@@ -10,7 +10,9 @@ pub async fn main() {
 
     use pipegate::middleware::{
         one_time_payment::{types::OneTimePaymentConfig, OnetimePaymentMiddlewareLayer},
-        payment_channel::{channel::ChannelState, PipegateMiddlewareLayer},
+        payment_channel::{
+            channel::ChannelState, types::PaymentChannelConfig, PaymentChannelMiddlewareLayer,
+        },
         stream_payment::{
             state::StreamState, types::StreamsConfig, StreamListner, StreamMiddlewareLayer,
         },
@@ -24,13 +26,18 @@ pub async fn main() {
     let rpc_url: alloy::transports::http::reqwest::Url =
         "https://base-sepolia-rpc.publicnode.com".parse().unwrap();
 
+    // **** PAYMENT CHANNEL CONFIG ****
     // Amount is not supposed to be in the decimal format, so parsed with the decimals of that token
     // E.g. if USDC is being used 1USDC = 1000000 after 6 decimal places in case of the USDC token
-    let payment_amount = U256::from(1000); // 0.001 USDC in this case
+    let payment_channel_state = ChannelState::new();
+    let payment_channel_config = PaymentChannelConfig {
+        recipient: Address::from_str("0x62c43323447899acb61c18181e34168903e033bf").unwrap(),
+        token_address: Address::from_str("0x036CbD53842c5426634e7929541eC2318f3dCF7e").unwrap(),
+        amount: U256::from(1000), // 0.001 USDC in this case
+        rpc_url: rpc_url.to_string(),
+    };
 
-    // Create a new instance of our state
-    let state = ChannelState::new(rpc_url.clone());
-
+    // **** ONE TIME PAYMENT CONFIG ****
     let onetime_payment_config = OneTimePaymentConfig {
         recipient: Address::from_str("0x62c43323447899acb61c18181e34168903e033bf").unwrap(),
         token_address: Address::from_str("0x036CbD53842c5426634e7929541eC2318f3dCF7e").unwrap(),
@@ -39,8 +46,8 @@ pub async fn main() {
         rpc_url: rpc_url.to_string(),
     };
 
+    // **** STREAM PAYMENT CONFIG ****
     let stream_state = StreamState::new();
-
     let stream_payment_config = StreamsConfig {
         recipient: Address::from_str("0x62c43323447899acb61c18181e34168903e033bf").unwrap(),
         token_address: Address::from_str("0x1650581f573ead727b92073b5ef8b4f5b94d1648").unwrap(),
@@ -49,17 +56,15 @@ pub async fn main() {
         rpc_url: rpc_url.to_string(),
         cache_time: 900,
     };
-
     let stream_state_clone = stream_state.clone();
     let stream_payment_config_clone = stream_payment_config.clone();
 
     let app = Router::new()
         .route(
             "/",
-            get(root).route_layer(PipegateMiddlewareLayer::new(
-                state.clone(),
-                payment_amount,
-                true,
+            get(root).route_layer(PaymentChannelMiddlewareLayer::new(
+                payment_channel_state.clone(),
+                payment_channel_config,
             )),
         )
         .route(

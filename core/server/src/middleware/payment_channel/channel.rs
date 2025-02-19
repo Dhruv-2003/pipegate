@@ -1,28 +1,24 @@
 // Channel struct and implementation
 // It's the local channel state for the middleware on the server side on how to store the info and just work with it
 
-use std::{
-    collections::HashMap,
-    sync::Arc,
-    time::{SystemTime, UNIX_EPOCH},
-};
+use std::{collections::HashMap, sync::Arc};
 
 use alloy::{
     contract::Error,
     network::EthereumWallet,
-    primitives::{Address, FixedBytes, PrimitiveSignature, U256},
+    primitives::{FixedBytes, PrimitiveSignature, U256},
     providers::ProviderBuilder,
     signers::local::PrivateKeySigner,
     sol,
 };
 use alloy::{primitives::Bytes, transports::http::reqwest::Url};
 
-#[cfg(target_arch = "wasm32")]
-use js_sys::Date;
-
 use tokio::sync::RwLock;
 
-use crate::{error::AuthError, middleware::payment_channel::types::PaymentChannel};
+use crate::{
+    error::AuthError,
+    middleware::payment_channel::types::{PaymentChannel, PaymentChannelConfig},
+};
 
 sol!(
     #[allow(missing_docs)]
@@ -34,16 +30,12 @@ sol!(
 #[derive(Clone)]
 pub struct ChannelState {
     pub(crate) channels: Arc<RwLock<HashMap<U256, PaymentChannel>>>, // All the channels the current server has with other user
-    rate_limiter: Arc<RwLock<HashMap<Address, (u64, SystemTime)>>>,  // Rate limiter for the user
-    network_rpc_url: Url, // provider: Arc<dyn Provider>, // Provider to interact with the blockchain
 }
 
 impl ChannelState {
-    pub fn new(rpc_url: Url) -> Self {
+    pub fn new() -> Self {
         Self {
             channels: Arc::new(RwLock::new(HashMap::new())),
-            rate_limiter: Arc::new(RwLock::new(HashMap::new())),
-            network_rpc_url: rpc_url,
         }
     }
 
@@ -79,10 +71,11 @@ impl ChannelState {
     // Validating all the information of the channel from the onchain contract for the first time, before the channel is used
     pub async fn validate_channel(
         &self,
+        config: &PaymentChannelConfig,
         payment_channel: &PaymentChannel,
     ) -> Result<(), AuthError> {
         // self.network.validate_channel(channel_id, balance).await
-        let provider = ProviderBuilder::new().on_http(self.network_rpc_url.clone());
+        let provider = ProviderBuilder::new().on_http(config.rpc_url.parse().unwrap());
 
         let payment_channel_contract =
             PaymentChannelContract::new(payment_channel.address, provider);
@@ -152,44 +145,35 @@ impl ChannelState {
             .map_err(|e| AuthError::ContractError(e.to_string()))?
             ._0;
 
-        if payment_channel.recipient != recipient_value {
+        if payment_channel.recipient != recipient_value
+            || payment_channel.recipient != config.recipient
+        {
+            return Err(AuthError::InvalidChannel);
+        }
+
+        let price_value = payment_channel_contract
+            .price()
+            .call()
+            .await
+            .map_err(|e| AuthError::ContractError(e.to_string()))?
+            ._0;
+
+        if price_value != config.amount {
+            return Err(AuthError::InvalidChannel);
+        }
+
+        let token_value = payment_channel_contract
+            .token()
+            .call()
+            .await
+            .map_err(|e| AuthError::ContractError(e.to_string()))?
+            ._0;
+
+        if token_value != config.token_address {
             return Err(AuthError::InvalidChannel);
         }
 
         Ok(())
-    }
-
-    // rate limiter method
-    // ✅
-    pub(crate) async fn check_rate_limit(&self, sender: Address) -> Result<(), AuthError> {
-        const RATE_LIMIT: u64 = 100; // 100 requests
-        const WINDOW: u64 = 60; // Every 60 seconds
-
-        let mut rate_limits = self.rate_limiter.write().await;
-
-        #[cfg(not(target_arch = "wasm32"))]
-        let now = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_secs();
-
-        #[cfg(target_arch = "wasm32")]
-        let now = (Date::now() as u64) / 1000;
-
-        let (count, last_reset) = rate_limits.entry(sender).or_insert((0, SystemTime::now()));
-
-        let last_reset_secs = last_reset.duration_since(UNIX_EPOCH).unwrap().as_secs();
-
-        if now - last_reset_secs >= WINDOW {
-            *count = 1;
-            *last_reset = SystemTime::now();
-            Ok(())
-        } else if *count >= RATE_LIMIT {
-            Err(AuthError::RateLimitExceeded)
-        } else {
-            *count += 1;
-            Ok(())
-        }
     }
 }
 
