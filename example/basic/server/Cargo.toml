@@ -1,0 +1,9 @@
+[package]
+name = "server"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+axum =  "0.7.8"
+pipegate = { path = "../../../core/server" }
+tokio = { version = "1.41.1", features = ["sync", "macros", "net", "rt-multi-thread"] }
