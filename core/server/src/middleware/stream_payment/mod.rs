@@ -14,7 +14,9 @@ use axum::{
     response::{IntoResponse, Response},
 };
 
+#[cfg(not(target_arch = "wasm32"))]
 pub use listener::StreamListner;
+
 use state::StreamState;
 use tower::{Layer, Service};
 

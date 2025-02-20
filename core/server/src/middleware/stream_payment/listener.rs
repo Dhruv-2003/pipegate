@@ -9,10 +9,12 @@ use alloy::{
 };
 
 #[derive(Debug, Clone)]
+#[cfg(not(target_arch = "wasm32"))]
 pub struct StreamListner;
 
 use super::{state::StreamState, StreamsConfig};
 
+#[cfg(not(target_arch = "wasm32"))]
 impl StreamListner {
     pub async fn new(state: StreamState, config: StreamsConfig) -> Self {
         tokio::spawn(async move {

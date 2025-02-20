@@ -1,12 +1,21 @@
 use std::str::FromStr;
 
-use crate::{
-    channel::{close_channel, ChannelState},
-    types::{
-        tx::{SignedStream, StreamsConfig},
-        OneTimePaymentConfig, PaymentChannel, SignedPaymentTx, SignedRequest,
+use crate::middleware::{
+    one_time_payment::{
+        types::{OneTimePaymentConfig, SignedPaymentTx},
+        verify::verify_tx,
     },
-    verify::{verify_and_update_channel, verify_channel, verify_stream, verify_tx},
+    payment_channel::{
+        channel::{close_channel, ChannelState},
+        types::{PaymentChannel, PaymentChannelConfig, SignedRequest},
+        verify::{verify_and_update_channel, verify_channel},
+    },
+    stream_payment::{
+        state::StreamState,
+        types::{SignedStream, StreamsConfig},
+        verify::verify_stream,
+        Stream,
+    },
 };
 
 use alloy::{
@@ -15,32 +24,32 @@ use alloy::{
 };
 
 use console_error_panic_hook;
-// use console_log;
 
+use js_sys::Date;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::future_to_promise;
 
 #[wasm_bindgen(start)]
 pub fn initialize_logging() {
     console_error_panic_hook::set_once();
-    // console_log::init_with_level()
 }
 
 #[wasm_bindgen]
 pub struct PaymentChannelVerifier {
     inner: ChannelState,
+    config: PaymentChannelConfig,
 }
 
 #[wasm_bindgen]
 impl PaymentChannelVerifier {
     #[wasm_bindgen(constructor)]
-    pub fn new(rpc_url: &str) -> Result<PaymentChannelVerifier, JsError> {
-        let url = rpc_url
-            .parse()
-            .map_err(|e| JsError::new(&format!("Invalid URL: {}", e)))?;
+    pub fn new(config_json: String) -> Result<PaymentChannelVerifier, JsError> {
+        let config: PaymentChannelConfig = serde_json::from_str(&config_json)
+            .map_err(|e| JsError::new(&format!("Invalid payment channel: {}", e)))?;
 
         Ok(PaymentChannelVerifier {
-            inner: ChannelState::new(url),
+            inner: ChannelState::new(),
+            config: config,
         })
     }
 
@@ -55,6 +64,7 @@ impl PaymentChannelVerifier {
         body_bytes: Vec<u8>,
     ) -> js_sys::Promise {
         let state = self.inner.clone();
+        let config = self.config.clone();
 
         future_to_promise(async move {
             let message: Vec<u8> = unhexlify(&message)
@@ -81,14 +91,19 @@ impl PaymentChannelVerifier {
                 timestamp,
             };
 
-            let result = verify_and_update_channel(&state, request)
+            let result = verify_and_update_channel(&state, &config, request)
                 .await
                 .map_err(|e| {
                     JsValue::from_str(&format!("Verification failed: {}", e.to_string()))
                 })?;
 
-            // Rate limiting is not implemented in the wasm version
+            state
+                .channels
+                .write()
+                .await
+                .insert(result.0.channel_id, result.0.clone());
 
+            // Rate limiting is not implemented in the wasm version
             Ok(JsValue::from_str(&serde_json::to_string(&result).unwrap()))
         })
     }
@@ -96,7 +111,7 @@ impl PaymentChannelVerifier {
 
 #[wasm_bindgen]
 pub fn verify_channel_no_state(
-    rpc_url: String,
+    config_json: String,
     current_channel_json: Option<String>,
     message: String,
     signature: String,
@@ -106,9 +121,8 @@ pub fn verify_channel_no_state(
     body_bytes: Vec<u8>,
 ) -> js_sys::Promise {
     future_to_promise(async move {
-        let rpc_url = rpc_url
-            .parse()
-            .map_err(|e| JsError::new(&format!("Invalid URL: {}", e)))?;
+        let config: PaymentChannelConfig = serde_json::from_str(&config_json)
+            .map_err(|e| JsError::new(&format!("Invalid payment channel: {}", e)))?;
 
         let message: Vec<u8> = unhexlify(&message)
             .map_err(|e| JsValue::from_str(&format!("Invalid request: {}", e)))?;
@@ -141,7 +155,7 @@ pub fn verify_channel_no_state(
             timestamp,
         };
 
-        let result = verify_channel(rpc_url, request, current_channel)
+        let result = verify_channel(config, request, current_channel)
             .await
             .map_err(|e| JsValue::from_str(&format!("Verification failed: {}", e.to_string())))?;
 
@@ -209,6 +223,86 @@ pub fn verify_stream_tx(
 
         Ok(JsValue::from_bool(result))
     })
+}
+
+#[wasm_bindgen]
+pub struct StreamVerifier {
+    inner: StreamState,
+    config: StreamsConfig,
+}
+
+#[wasm_bindgen]
+impl StreamVerifier {
+    #[wasm_bindgen(constructor)]
+    pub fn new(config_json: String) -> Result<StreamVerifier, JsError> {
+        let config: StreamsConfig = serde_json::from_str(&config_json)
+            .map_err(|e| JsError::new(&format!("Invalid payment channel: {}", e)))?;
+
+        Ok(StreamVerifier {
+            inner: StreamState::new(),
+            config: config,
+        })
+    }
+
+    #[wasm_bindgen]
+    pub fn verify_request(&self, signature: String, sender: String) -> js_sys::Promise {
+        let state = self.inner.clone();
+        let config = self.config.clone();
+
+        future_to_promise(async move {
+            let signature: PrimitiveSignature = unhexlify(&signature)
+                .map_err(|e| JsValue::from_str(&format!("Invalid signature: {}", e)))
+                .and_then(|bytes| {
+                    PrimitiveSignature::try_from(bytes.as_slice())
+                        .map_err(|_| JsValue::from_str("Invalid signature: invalid length"))
+                })?;
+
+            let sender = Address::from_str(&sender)
+                .map_err(|e| JsValue::from_str(&format!("Invalid sender addres: {}", e)))?;
+
+            let signed_stream = SignedStream { signature, sender };
+
+            if let Some(stream) = state.get(signed_stream.sender).await {
+                if stream.last_verified > 0 {
+                    let timestamp = (Date::now() as u64) / 1000;
+
+                    if timestamp - stream.last_verified < config.cache_time {
+                        println!("Stream already verified, in Cache!");
+                        println!("=== end middleware check ===");
+
+                        return Ok(JsValue::from_bool(true));
+                    }
+                }
+            }
+
+            let result = verify_stream(signed_stream.clone(), config.clone())
+                .await
+                .map_err(|e| JsValue::from_str(&format!("Verification failed: {}", e)))?;
+
+            if result {
+                println!("Verified");
+                println!("=== end middleware check ===");
+
+                let timestamp = (Date::now() as u64) / 1000;
+
+                // Add the verified stream to the record
+                let stream = Stream {
+                    sender: signed_stream.sender,
+                    recipient: config.recipient,
+                    token_address: config.token_address,
+                    flow_rate: config.amount,
+                    last_verified: timestamp,
+                };
+
+                state.set(signed_stream.sender, stream).await;
+
+                // start the inner subscribe/listener service for events of this sender
+            }
+
+            // Rate limiting is not implemented in the wasm version
+            Ok(JsValue::from_str(&serde_json::to_string(&result).unwrap()))
+        })
+    }
 }
 
 #[wasm_bindgen]
