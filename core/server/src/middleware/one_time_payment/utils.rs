@@ -8,7 +8,7 @@ use http::HeaderMap;
 
 use crate::{error::AuthError, middleware::one_time_payment::types::SignedPaymentTx};
 
-pub async fn parse_tx_headers_axum(headers: &HeaderMap) -> Result<SignedPaymentTx, AuthError> {
+pub async fn parse_tx_headers(headers: &HeaderMap) -> Result<SignedPaymentTx, AuthError> {
     let signature = headers
         .get("X-Signature")
         .ok_or(AuthError::MissingHeaders)?

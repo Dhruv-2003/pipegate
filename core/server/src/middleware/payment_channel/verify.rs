@@ -4,7 +4,6 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use alloy::{
     hex::{self},
     primitives::U256,
-    transports::http::reqwest::Url,
 };
 
 #[cfg(target_arch = "wasm32")]
@@ -14,13 +13,14 @@ use crate::{
     error::AuthError,
     middleware::payment_channel::{
         channel::ChannelState,
-        types::{PaymentChannel, SignedRequest},
+        types::{PaymentChannel, PaymentChannelConfig, SignedRequest},
         utils::create_channel_message,
     },
 };
 
 pub async fn verify_and_update_channel(
     state: &ChannelState,
+    config: &PaymentChannelConfig,
     mut request: SignedRequest,
 ) -> Result<(PaymentChannel, bool), AuthError> {
     println!("\n=== verify_and_update_channel ===");
@@ -63,7 +63,7 @@ pub async fn verify_and_update_channel(
         println!("Message match");
     }
 
-    // Verify signature using network-specific logic
+    // Verify signature
     state
         .verify_signature(
             &request.payment_channel,
@@ -119,7 +119,9 @@ pub async fn verify_and_update_channel(
         // 1. Verify the balance is available in the contract as the channel balance
         // 2. Verify the expiration is in the future
         // 3. Verify the channel ID is correct
-        state.validate_channel(&request.payment_channel).await?;
+        state
+            .validate_channel(config, &request.payment_channel)
+            .await?;
 
         // Ensure the nonce is 0
         if request.payment_channel.nonce != U256::from(0) {
@@ -144,7 +146,7 @@ pub async fn verify_and_update_channel(
 // Verify the channel and return the updated channel
 // No need of a state object here as it's just a verification
 pub async fn verify_channel(
-    rpc_url: Url,
+    config: PaymentChannelConfig,
     mut request: SignedRequest,
     current_channel: Option<PaymentChannel>,
 ) -> Result<(PaymentChannel, bool), AuthError> {
@@ -175,7 +177,7 @@ pub async fn verify_channel(
     }
 
     // Create a temporary state object
-    let state = ChannelState::new(rpc_url);
+    let state = ChannelState::new();
 
     // If currentChannel is present add it to the state
     if let Some(channel) = current_channel {
@@ -242,7 +244,9 @@ pub async fn verify_channel(
         // 1. Verify the balance is available in the contract as the channel balance
         // 2. Verify the expiration is in the future
         // 3. Verify the channel ID is correct
-        state.validate_channel(&request.payment_channel).await?;
+        state
+            .validate_channel(&config, &request.payment_channel)
+            .await?;
 
         // Ensure the nonce is 0
         if request.payment_channel.nonce != U256::from(0) {

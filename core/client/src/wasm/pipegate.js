@@ -198,8 +198,8 @@ function debugString(val) {
     return className;
 }
 
-export function initialize_logging() {
-    wasm.initialize_logging();
+export function start() {
+    wasm.start();
 }
 
 function takeFromExternrefTable0(idx) {
@@ -215,7 +215,7 @@ function passArray8ToWasm0(arg, malloc) {
     return ptr;
 }
 /**
- * @param {string} rpc_url
+ * @param {string} config_json
  * @param {string | undefined} current_channel_json
  * @param {string} message
  * @param {string} signature
@@ -225,8 +225,8 @@ function passArray8ToWasm0(arg, malloc) {
  * @param {Uint8Array} body_bytes
  * @returns {Promise<any>}
  */
-export function verify_channel_no_state(rpc_url, current_channel_json, message, signature, payment_channel_json, payment_amount, timestamp, body_bytes) {
-    const ptr0 = passStringToWasm0(rpc_url, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+export function verify_channel_no_state(config_json, current_channel_json, message, signature, payment_channel_json, payment_amount, timestamp, body_bytes) {
+    const ptr0 = passStringToWasm0(config_json, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
     const len0 = WASM_VECTOR_LEN;
     var ptr1 = isLikeNone(current_channel_json) ? 0 : passStringToWasm0(current_channel_json, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
     var len1 = WASM_VECTOR_LEN;
@@ -260,6 +260,23 @@ export function verify_onetime_payment_tx(ontime_payment_config_json, signature,
 }
 
 /**
+ * @param {string} stream_config_json
+ * @param {string} signature
+ * @param {string} sender
+ * @returns {Promise<any>}
+ */
+export function verify_stream_tx(stream_config_json, signature, sender) {
+    const ptr0 = passStringToWasm0(stream_config_json, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ptr1 = passStringToWasm0(signature, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len1 = WASM_VECTOR_LEN;
+    const ptr2 = passStringToWasm0(sender, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len2 = WASM_VECTOR_LEN;
+    const ret = wasm.verify_stream_tx(ptr0, len0, ptr1, len1, ptr2, len2);
+    return ret;
+}
+
+/**
  * @param {string} rpc_url
  * @param {string} private_key
  * @param {string} signature
@@ -283,11 +300,11 @@ export function close_and_withdraw_channel(rpc_url, private_key, signature, paym
 }
 
 function __wbg_adapter_28(arg0, arg1, arg2) {
-    wasm.closure657_externref_shim(arg0, arg1, arg2);
+    wasm.closure675_externref_shim(arg0, arg1, arg2);
 }
 
-function __wbg_adapter_103(arg0, arg1, arg2, arg3) {
-    wasm.closure992_externref_shim(arg0, arg1, arg2, arg3);
+function __wbg_adapter_117(arg0, arg1, arg2, arg3) {
+    wasm.closure962_externref_shim(arg0, arg1, arg2, arg3);
 }
 
 const __wbindgen_enum_RequestCredentials = ["omit", "same-origin", "include"];
@@ -312,10 +329,10 @@ export class PaymentChannelVerifier {
         wasm.__wbg_paymentchannelverifier_free(ptr, 0);
     }
     /**
-     * @param {string} rpc_url
+     * @param {string} config_json
      */
-    constructor(rpc_url) {
-        const ptr0 = passStringToWasm0(rpc_url, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    constructor(config_json) {
+        const ptr0 = passStringToWasm0(config_json, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
         const len0 = WASM_VECTOR_LEN;
         const ret = wasm.paymentchannelverifier_new(ptr0, len0);
         if (ret[2]) {
@@ -344,6 +361,63 @@ export class PaymentChannelVerifier {
         const ptr3 = passArray8ToWasm0(body_bytes, wasm.__wbindgen_malloc);
         const len3 = WASM_VECTOR_LEN;
         const ret = wasm.paymentchannelverifier_verify_request(this.__wbg_ptr, ptr0, len0, ptr1, len1, ptr2, len2, payment_amount, timestamp, ptr3, len3);
+        return ret;
+    }
+}
+
+const StreamVerifierFinalization = (typeof FinalizationRegistry === 'undefined')
+    ? { register: () => {}, unregister: () => {} }
+    : new FinalizationRegistry(ptr => wasm.__wbg_streamverifier_free(ptr >>> 0, 1));
+
+export class StreamVerifier {
+
+    __destroy_into_raw() {
+        const ptr = this.__wbg_ptr;
+        this.__wbg_ptr = 0;
+        StreamVerifierFinalization.unregister(this);
+        return ptr;
+    }
+
+    free() {
+        const ptr = this.__destroy_into_raw();
+        wasm.__wbg_streamverifier_free(ptr, 0);
+    }
+    /**
+     * @param {string} config_json
+     */
+    constructor(config_json) {
+        const ptr0 = passStringToWasm0(config_json, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.streamverifier_new(ptr0, len0);
+        if (ret[2]) {
+            throw takeFromExternrefTable0(ret[1]);
+        }
+        this.__wbg_ptr = ret[0] >>> 0;
+        StreamVerifierFinalization.register(this, this.__wbg_ptr, this);
+        return this;
+    }
+    /**
+     * @param {string} listener_config_json
+     */
+    start_listener(listener_config_json) {
+        const ptr0 = passStringToWasm0(listener_config_json, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.streamverifier_start_listener(this.__wbg_ptr, ptr0, len0);
+        if (ret[1]) {
+            throw takeFromExternrefTable0(ret[0]);
+        }
+    }
+    /**
+     * @param {string} signature
+     * @param {string} sender
+     * @returns {Promise<any>}
+     */
+    verify_request(signature, sender) {
+        const ptr0 = passStringToWasm0(signature, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ptr1 = passStringToWasm0(sender, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len1 = WASM_VECTOR_LEN;
+        const ret = wasm.streamverifier_verify_request(this.__wbg_ptr, ptr0, len0, ptr1, len1);
         return ret;
     }
 }
@@ -404,6 +478,9 @@ function __wbg_get_imports() {
         const ret = arg0.call(arg1);
         return ret;
     }, arguments) };
+    imports.wbg.__wbg_debug_156ca727dbc3150f = function(arg0) {
+        console.debug(arg0);
+    };
     imports.wbg.__wbg_done_f22c1561fa919baa = function(arg0) {
         const ret = arg0.done;
         return ret;
@@ -418,6 +495,9 @@ function __wbg_get_imports() {
         } finally {
             wasm.__wbindgen_free(deferred0_0, deferred0_1, 1);
         }
+    };
+    imports.wbg.__wbg_error_fab41a42d22bf2bc = function(arg0) {
+        console.error(arg0);
     };
     imports.wbg.__wbg_fetch_229368eecee9d217 = function(arg0, arg1) {
         const ret = arg0.fetch(arg1);
@@ -439,6 +519,9 @@ function __wbg_get_imports() {
         const ret = arg0.headers;
         return ret;
     };
+    imports.wbg.__wbg_info_c3044c86ae29faab = function(arg0) {
+        console.info(arg0);
+    };
     imports.wbg.__wbg_instanceof_Response_d3453657e10c4300 = function(arg0) {
         let result;
         try {
@@ -457,6 +540,9 @@ function __wbg_get_imports() {
         const ret = arg0.length;
         return ret;
     };
+    imports.wbg.__wbg_log_464d1b2190ca1e04 = function(arg0) {
+        console.log(arg0);
+    };
     imports.wbg.__wbg_new_35d748855c4620b9 = function() { return handleError(function () {
         const ret = new Headers();
         return ret;
@@ -468,7 +554,7 @@ function __wbg_get_imports() {
                 const a = state0.a;
                 state0.a = 0;
                 try {
-                    return __wbg_adapter_103(a, state0.b, arg0, arg1);
+                    return __wbg_adapter_117(a, state0.b, arg0, arg1);
                 } finally {
                     state0.a = a;
                 }
@@ -605,6 +691,9 @@ function __wbg_get_imports() {
         const ret = arg0.value;
         return ret;
     };
+    imports.wbg.__wbg_warn_123db6aa8948382e = function(arg0) {
+        console.warn(arg0);
+    };
     imports.wbg.__wbindgen_cb_drop = function(arg0) {
         const obj = arg0.original;
         if (obj.cnt-- == 1) {
@@ -614,8 +703,8 @@ function __wbg_get_imports() {
         const ret = false;
         return ret;
     };
-    imports.wbg.__wbindgen_closure_wrapper1226 = function(arg0, arg1, arg2) {
-        const ret = makeMutClosure(arg0, arg1, 658, __wbg_adapter_28);
+    imports.wbg.__wbindgen_closure_wrapper1289 = function(arg0, arg1, arg2) {
+        const ret = makeMutClosure(arg0, arg1, 676, __wbg_adapter_28);
         return ret;
     };
     imports.wbg.__wbindgen_debug_string = function(arg0, arg1) {

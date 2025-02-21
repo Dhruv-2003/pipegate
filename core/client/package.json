@@ -1,17 +1,19 @@
 {
   "name": "pipegate-sdk",
-  "version": "0.4.3",
+  "version": "0.5.0",
   "description": "A TypeScript client-side payment authentication SDK for stablecoins used with axios",
   "main": "dist/index.js",
   "module": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": [
-    "dist"
+    "dist",
+    "dist/wasm"
   ],
   "scripts": {
-    "watch": "tsc --watch --project tsconfig.json",
-    "dev": "tsc --hot --project tsconfig.json",
-    "build": "tsc --project tsconfig.json"
+    "wasm:build": "mkdir -p dist/wasm && cp -r src/wasm/* ./dist/wasm",
+    "watch": "tsc --watch --project tsconfig.json && npm run wasm:build ",
+    "dev": "tsc --hot --project tsconfig.json && npm run wasm:build",
+    "build": "tsc --project tsconfig.json && npm run wasm:build"
   },
   "repository": {
     "type": "git",

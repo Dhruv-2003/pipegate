@@ -27,7 +27,7 @@ async function testPaymentChannelInterceptors() {
     );
 
     const axiosInstance = axios.create({
-      baseURL: "http://localhost:3000",
+      baseURL: "http://localhost:8000",
       timeout: 5000,
       headers: {
         Accept: "application/json",
@@ -111,7 +111,7 @@ async function testOnetimePaymentInterceptors() {
       "0xe88140d4787b1305c24961dcef2f7f73d583bb862b3cbde4b7eec854f61a0248";
 
     const axiosInstance = axios.create({
-      baseURL: "http://localhost:3000",
+      baseURL: "http://localhost:8000",
       timeout: 5000,
       headers: {
         Accept: "application/json",
@@ -170,7 +170,7 @@ async function testStreamInterceptors() {
     const streamSender = "0x898d0DBd5850e086E6C09D2c83A26Bb5F1ff8C33";
 
     const axiosInstance = axios.create({
-      baseURL: "http://localhost:3000",
+      baseURL: "http://localhost:8000",
       timeout: 5000,
       headers: {
         Accept: "application/json",
@@ -221,15 +221,20 @@ async function testStreamInterceptors() {
 
 // Run test
 async function main() {
-  testPaymentChannelInterceptors()
-    .then(() => console.log("\nTest completed"))
-    .catch(console.error);
+  // testPaymentChannelInterceptors()
+  //   .then(() => console.log("\nTest completed"))
+  //   .catch(console.error);
   // testOnetimePaymentInterceptors()
   //   .then(() => console.log("\nTest completed"))
   //   .catch(console.error);
-  // testStreamInterceptors()
-  //   .then(() => console.log("\nTest completed"))
-  //   .catch(console.error);
+  let start = performance.now();
+  testStreamInterceptors()
+    .then(() => {
+      console.log("\nTest completed");
+      let end = performance.now();
+      console.log("Time taken: ", end - start, "ms");
+    })
+    .catch(console.error);
 }
 
 main();

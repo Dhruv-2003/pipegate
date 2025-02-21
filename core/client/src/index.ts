@@ -3,19 +3,24 @@ import {
   type CreateChannelResponse,
   type CreateChannelParams,
 } from "./types/index";
-import init, {
+import {
   PaymentChannelVerifier,
+  StreamVerifier,
   verify_channel_no_state,
   close_and_withdraw_channel,
   verify_onetime_payment_tx,
+  verify_stream_tx,
 } from "./wasm/pipegate.js";
+import init from "./wasm/pipegate.js";
 
 export {
   ClientInterceptor,
-  init,
+  init as initWasm,
   PaymentChannelVerifier,
+  StreamVerifier,
   verify_channel_no_state,
   close_and_withdraw_channel,
   verify_onetime_payment_tx,
+  verify_stream_tx,
 };
 export type { CreateChannelResponse, CreateChannelParams };

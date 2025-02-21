@@ -1,5 +1,21 @@
 # Changelog
 
+## [V0.5.0] - 2025-02-22
+
+### Added
+
+- Onetime and Streaming middleware functions converted to Tower Services and now exported as `OneTimePaymentMiddlewareLayer` and `StreamingPaymentMiddlewareLayer` respectively.
+- Added `StreamVerifier` for WASM support of stream based verifications with support for cache
+- Cache support added for stream based verification
+- Added `StreamListener` for optimisation in stream based verification to listen to stream modifications and invalidate the cache.
+- Alloy required types re-exported for better usability.
+
+### Changed
+
+- Major refactor in the codebase for better readability and maintainability, so imports might change.
+- `PipegateMiddlewareLayer` now renamed to `PaymentChannelMiddlewareLayer` for better naming
+- `PaymentChannelMiddlewareLayer` now accepts a `PaymentChannelConfig` instead of `amount` for better control over the channel.
+
 ## [V0.4.1] - 2024-12-28
 
 ### Added

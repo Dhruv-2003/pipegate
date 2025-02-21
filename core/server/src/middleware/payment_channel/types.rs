@@ -31,3 +31,11 @@ pub struct SignedRequest {
     pub body_bytes: Vec<u8>,
     pub timestamp: u64,
 }
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct PaymentChannelConfig {
+    pub recipient: Address,
+    pub token_address: Address,
+    pub amount: U256, // amount for the one-time payment
+    pub rpc_url: String,
+}

@@ -10,6 +10,8 @@ The Web3 Stripe for APIs. Create payment channels or streams, make API calls, pa
 
 PipeGate is a decentralized API monetization protocol that changes how APIs handle payments and access control. By replacing traditional API keys with payment channels, one time payments & streams, it enables true pay-per-call pricing without gas fees for each request.
 
+### Detailed documentation can be found at [docs.pipegate.xyz](https://docs.pipegate.xyz)
+
 **The protocol consists of three main components:**
 
 - A client-side middleware that automatically handles payment channel creation, request signing, and payment management
@@ -122,10 +124,15 @@ With this project, we've tried to make the complex payment channel system comple
 1. **Create a stream**
 
    - Create a stream to the API provider's address using the superfluid [app](https://app.superfluid.finance/send)
+   - Or just use the following command from your terminal to start a stream with the provider's address
+
+   ```bash
+   cast send 0xcfA132E353cB4E398080B9700609bb008eceB125 "createFlow(address token,address sender,address receiver,int96 flowrate,bytes userData)" 0xtoken 0xsender 0xreceiver flow 0x
+   ```
 
 2. **Make API calls**
 
-   - Use the client-side SDK to add interceptor to your axios instance with this [sdk](https://github.com/Dhruv-2003/pipegate/blob/main/core/client/README.md#making-api-calls-with-superfluid-streams-method)
+   - Use the client-side SDK to add interceptor to your axios instance with this [sdk](https://github.com/Dhruv-2003/pipegate/blob/main/core/server/README.md#simple-server-implementation-for-stream-middleware)
 
 ## Team
 
