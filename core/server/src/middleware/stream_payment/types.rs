@@ -25,3 +25,9 @@ pub struct Stream {
     pub flow_rate: I96,
     pub last_verified: u64,
 }
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct StreamListenerConfig {
+    pub wss_url: String,
+    pub cfa: Address,
+}

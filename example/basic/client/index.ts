@@ -6,6 +6,7 @@ async function main() {
   console.log("\nStarting SDK Interceptor Test...");
 
   try {
+    // Ensure PRIVATE_KEY is set in .env file
     const sdk = new ClientInterceptor();
 
     const streamSender = "0x898d0DBd5850e086E6C09D2c83A26Bb5F1ff8C33";
@@ -59,3 +60,5 @@ async function main() {
     }
   }
 }
+
+main();

@@ -45,6 +45,8 @@ async fn main() {
         }
     });
 
+    println!("Listening on: http://localhost:8000");
+
     axum::serve(listener, app).await.unwrap();
     stream_listener.await.unwrap();
 }

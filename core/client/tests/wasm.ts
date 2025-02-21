@@ -1,9 +1,4 @@
-import init, {
-  PaymentChannelVerifier,
-  initialize_logging,
-} from "../src/wasm/pipegate.js";
-// import fs from "fs";
-
+import init, { PaymentChannelVerifier } from "../src/wasm/pipegate.js";
 const dummyPaymentChannel = {
   address: "0xC72DfAC1a7B3Bc178F10Dc3bf36c7F64cf41B7DE",
   sender: "0x898d0DBd5850e086E6C09D2c83A26Bb5F1ff8C33",
@@ -29,10 +24,10 @@ async function main() {
     await init().catch(async (e) => {
       console.warn("Async initialization failed, trying sync...", e);
       // If async fails, try sync initialization
-      // initSync();
+      // await initSync();
     });
 
-    initialize_logging();
+    // initialize_logging();
 
     const rpc_url = "https://base-sepolia-rpc.publicnode.com";
 

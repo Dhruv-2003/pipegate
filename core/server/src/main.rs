@@ -14,7 +14,9 @@ pub async fn main() {
             channel::ChannelState, types::PaymentChannelConfig, PaymentChannelMiddlewareLayer,
         },
         stream_payment::{
-            state::StreamState, types::StreamsConfig, StreamListner, StreamMiddlewareLayer,
+            state::StreamState,
+            types::{StreamListenerConfig, StreamsConfig},
+            StreamListner, StreamMiddlewareLayer,
         },
     };
 
@@ -79,43 +81,23 @@ pub async fn main() {
             )),
         );
 
-    // another example with middleware based on fn with state method
-    // let app = Router::new()
-    //     .route(
-    //         "/",
-    //         get(root).route_layer(middleware::from_fn_with_state(
-    //             payment_channel_state,
-    //             payment_channel_auth_fn_middleware,
-    //         )),
-    //     )
-    //     .route(
-    //         "/one-time",
-    //         get(one_time).route_layer(middleware::from_fn_with_state(
-    //             onetime_state,
-    //             onetime_payment_auth_fn_middleware,
-    //         )),
-    //     )
-    //     .route(
-    //         "/stream",
-    //         get(stream).route_layer(middleware::from_fn_with_state(
-    //             stream_state,
-    //             superfluid_streams_auth_fn_middleware,
-    //         )),
-    //     );
-
-    // Run our server on localhost:3000
+    // Run our server on localhost:8000
     let listener = tokio::net::TcpListener::bind("0.0.0.0:8000").await.unwrap();
-    let stream_listener = tokio::spawn(async move {
-        println!("Spawning event listener ...");
-        if let Err(e) = StreamListner::start(stream_state_clone, stream_payment_config_clone).await
-        {
-            eprintln!("Event listener error: {:?}", e);
-        }
-    });
-    axum::serve(listener, app).await.unwrap();
-    println!("Listening on: http://localhost:8000");
 
-    stream_listener.await.unwrap();
+    // Start the stream listener
+    let stream_listener_config = StreamListenerConfig {
+        wss_url: "wss://base-sepolia-rpc.publicnode.com".to_string(),
+        cfa: Address::from_str("0x6836F23d6171D74Ef62FcF776655aBcD2bcd62Ef").unwrap(),
+    };
+    let _stream_listener = StreamListner::new(
+        stream_state_clone,
+        stream_payment_config_clone,
+        stream_listener_config,
+    )
+    .await;
+
+    println!("Listening on: http://localhost:8000");
+    axum::serve(listener, app).await.unwrap();
 }
 
 async fn root() -> &'static str {

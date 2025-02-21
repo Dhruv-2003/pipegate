@@ -27,6 +27,7 @@ tower = "0.5.2"
 http = "1.2.0"
 http-body = "1.0.1"
 bytes = "1.9.0"
+log = "0.4.26"
 
 [lib]
 crate-type = ["cdylib", "rlib"]

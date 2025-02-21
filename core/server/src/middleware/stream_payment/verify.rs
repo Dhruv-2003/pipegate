@@ -25,7 +25,8 @@ sol!(
     "src/abi/CFAv1Forwarder.json"
 );
 
-pub async fn verify_stream_via_indexer(
+#[allow(dead_code)]
+pub(crate) async fn verify_stream_via_indexer(
     stream: SignedStream,
     config: StreamsConfig,
 ) -> Result<bool, AuthError> {

@@ -12,9 +12,9 @@ use crate::middleware::{
     },
     stream_payment::{
         state::StreamState,
-        types::{SignedStream, StreamsConfig},
+        types::{SignedStream, StreamListenerConfig, StreamsConfig},
         verify::verify_stream,
-        Stream,
+        Stream, StreamListner,
     },
 };
 
@@ -30,8 +30,10 @@ use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::future_to_promise;
 
 #[wasm_bindgen(start)]
-pub fn initialize_logging() {
+fn start() {
     console_error_panic_hook::set_once();
+
+    console_log::init().expect("error initializing log");
 }
 
 #[wasm_bindgen]
@@ -45,7 +47,7 @@ impl PaymentChannelVerifier {
     #[wasm_bindgen(constructor)]
     pub fn new(config_json: String) -> Result<PaymentChannelVerifier, JsError> {
         let config: PaymentChannelConfig = serde_json::from_str(&config_json)
-            .map_err(|e| JsError::new(&format!("Invalid payment channel: {}", e)))?;
+            .map_err(|e| JsError::new(&format!("Invalid channel config: {}", e)))?;
 
         Ok(PaymentChannelVerifier {
             inner: ChannelState::new(),
@@ -236,12 +238,23 @@ impl StreamVerifier {
     #[wasm_bindgen(constructor)]
     pub fn new(config_json: String) -> Result<StreamVerifier, JsError> {
         let config: StreamsConfig = serde_json::from_str(&config_json)
-            .map_err(|e| JsError::new(&format!("Invalid payment channel: {}", e)))?;
+            .map_err(|e| JsError::new(&format!("Invalid stream config: {}", e)))?;
+
+        let state = StreamState::new();
 
         Ok(StreamVerifier {
-            inner: StreamState::new(),
+            inner: state,
             config: config,
         })
+    }
+
+    #[wasm_bindgen]
+    pub fn start_listener(&self, listener_config_json: String) -> Result<(), JsError> {
+        let listener_config: StreamListenerConfig = serde_json::from_str(&listener_config_json)
+            .map_err(|e| JsError::new(&format!("Invalid stream listener config: {}", e)))?;
+
+        let _ = StreamListner::new(self.inner.clone(), self.config.clone(), listener_config);
+        Ok(())
     }
 
     #[wasm_bindgen]

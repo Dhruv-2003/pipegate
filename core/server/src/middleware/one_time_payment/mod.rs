@@ -2,6 +2,7 @@ pub mod types;
 pub mod utils;
 pub mod verify;
 
+#[cfg(not(target_arch = "wasm32"))]
 use std::{future::Future, pin::Pin};
 
 use axum::{

@@ -13,10 +13,12 @@ use js_sys::Date;
 use crate::error::AuthError;
 
 #[derive(Clone)]
+#[allow(dead_code)]
 pub struct RateLimiter {
     rate_limiter: Arc<RwLock<HashMap<Address, (u64, SystemTime)>>>, // Rate limiter for the user
 }
 
+#[allow(dead_code)]
 impl RateLimiter {
     pub fn new() -> Self {
         Self {

@@ -3,34 +3,60 @@ use std::str::FromStr;
 use alloy::{
     dyn_abi::DynSolType,
     eips::BlockNumberOrTag,
-    primitives::{address, Address, FixedBytes},
+    primitives::{Address, FixedBytes},
     providers::{Provider, ProviderBuilder, WsConnect},
     rpc::types::Filter,
 };
 
-#[derive(Debug, Clone)]
-#[cfg(not(target_arch = "wasm32"))]
-pub struct StreamListner;
+#[cfg(target_arch = "wasm32")]
+use wasm_bindgen_futures::spawn_local;
 
-use super::{state::StreamState, StreamsConfig};
+#[derive(Debug)]
+#[allow(dead_code)]
+pub struct StreamListner {
+    #[cfg(not(target_arch = "wasm32"))]
+    handle: tokio::task::JoinHandle<()>,
+}
 
-#[cfg(not(target_arch = "wasm32"))]
+use super::{state::StreamState, types::StreamListenerConfig, StreamsConfig};
+
 impl StreamListner {
-    pub async fn new(state: StreamState, config: StreamsConfig) -> Self {
-        tokio::spawn(async move {
-            println!("Starting event listener");
-            if let Err(e) = Self::start(state, config).await {
+    pub async fn new(
+        state: StreamState,
+        config: StreamsConfig,
+        listener_config: StreamListenerConfig,
+    ) -> Self {
+        #[cfg(not(target_arch = "wasm32"))]
+        let handle = tokio::spawn(async move {
+            println!("Spawning event listener");
+            if let Err(e) = Self::start(state, config, listener_config).await {
                 eprintln!("Event listener error: {:?}", e);
             }
         });
 
-        Self
+        #[cfg(target_arch = "wasm32")]
+        spawn_local(async move {
+            println!("Starting event listener");
+            if let Err(e) = Self::start(state, config, listener_config).await {
+                eprintln!("Event listener error: {:?}", e);
+            }
+        });
+
+        #[cfg(target_arch = "wasm32")]
+        return Self {};
+
+        #[cfg(not(target_arch = "wasm32"))]
+        Self { handle }
     }
 
-    pub async fn start(state: StreamState, config: StreamsConfig) -> Result<(), String> {
+    pub async fn start(
+        state: StreamState,
+        config: StreamsConfig,
+        listener_config: StreamListenerConfig,
+    ) -> Result<(), String> {
         println!("Starting event listener");
 
-        let wss_url = "wss://base-sepolia-rpc.publicnode.com".to_string();
+        let wss_url = listener_config.wss_url;
         let ws = WsConnect::new(wss_url);
 
         let provider = ProviderBuilder::new().on_ws(ws).await.map_err(|e| {
@@ -44,7 +70,7 @@ impl StreamListner {
         )
         .unwrap();
 
-        let contract_address = address!("6836F23d6171D74Ef62FcF776655aBcD2bcd62Ef");
+        let contract_address = listener_config.cfa;
 
         let filter = Filter::new()
             .address(contract_address)
