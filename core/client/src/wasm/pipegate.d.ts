@@ -13,7 +13,7 @@ export class PaymentChannelVerifier {
 export class StreamVerifier {
   free(): void;
   constructor(config_json: string);
-  start_listener(): void;
+  start_listener(listener_config_json: string): void;
   verify_request(signature: string, sender: string): Promise<any>;
 }
 
@@ -30,7 +30,7 @@ export interface InitOutput {
   readonly verify_stream_tx: (a: number, b: number, c: number, d: number, e: number, f: number) => any;
   readonly __wbg_streamverifier_free: (a: number, b: number) => void;
   readonly streamverifier_new: (a: number, b: number) => [number, number, number];
-  readonly streamverifier_start_listener: (a: number) => [number, number];
+  readonly streamverifier_start_listener: (a: number, b: number, c: number) => [number, number];
   readonly streamverifier_verify_request: (a: number, b: number, c: number, d: number, e: number) => any;
   readonly close_and_withdraw_channel: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number) => any;
   readonly __wbindgen_exn_store: (a: number) => void;
@@ -41,8 +41,8 @@ export interface InitOutput {
   readonly __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;
   readonly __wbindgen_export_6: WebAssembly.Table;
   readonly __externref_table_dealloc: (a: number) => void;
-  readonly closure686_externref_shim: (a: number, b: number, c: any) => void;
-  readonly closure973_externref_shim: (a: number, b: number, c: any, d: any) => void;
+  readonly closure675_externref_shim: (a: number, b: number, c: any) => void;
+  readonly closure962_externref_shim: (a: number, b: number, c: any, d: any) => void;
   readonly __wbindgen_start: () => void;
 }
 

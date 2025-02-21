@@ -124,7 +124,7 @@ pub fn verify_channel_no_state(
 ) -> js_sys::Promise {
     future_to_promise(async move {
         let config: PaymentChannelConfig = serde_json::from_str(&config_json)
-            .map_err(|e| JsError::new(&format!("Invalid payment channel: {}", e)))?;
+            .map_err(|e| JsError::new(&format!("Invalid config: {}", e)))?;
 
         let message: Vec<u8> = unhexlify(&message)
             .map_err(|e| JsValue::from_str(&format!("Invalid request: {}", e)))?;

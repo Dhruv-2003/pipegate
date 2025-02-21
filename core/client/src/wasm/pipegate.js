@@ -300,11 +300,11 @@ export function close_and_withdraw_channel(rpc_url, private_key, signature, paym
 }
 
 function __wbg_adapter_28(arg0, arg1, arg2) {
-    wasm.closure686_externref_shim(arg0, arg1, arg2);
+    wasm.closure675_externref_shim(arg0, arg1, arg2);
 }
 
 function __wbg_adapter_117(arg0, arg1, arg2, arg3) {
-    wasm.closure973_externref_shim(arg0, arg1, arg2, arg3);
+    wasm.closure962_externref_shim(arg0, arg1, arg2, arg3);
 }
 
 const __wbindgen_enum_RequestCredentials = ["omit", "same-origin", "include"];
@@ -396,8 +396,13 @@ export class StreamVerifier {
         StreamVerifierFinalization.register(this, this.__wbg_ptr, this);
         return this;
     }
-    start_listener() {
-        const ret = wasm.streamverifier_start_listener(this.__wbg_ptr);
+    /**
+     * @param {string} listener_config_json
+     */
+    start_listener(listener_config_json) {
+        const ptr0 = passStringToWasm0(listener_config_json, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.streamverifier_start_listener(this.__wbg_ptr, ptr0, len0);
         if (ret[1]) {
             throw takeFromExternrefTable0(ret[0]);
         }
@@ -698,8 +703,8 @@ function __wbg_get_imports() {
         const ret = false;
         return ret;
     };
-    imports.wbg.__wbindgen_closure_wrapper1295 = function(arg0, arg1, arg2) {
-        const ret = makeMutClosure(arg0, arg1, 687, __wbg_adapter_28);
+    imports.wbg.__wbindgen_closure_wrapper1289 = function(arg0, arg1, arg2) {
+        const ret = makeMutClosure(arg0, arg1, 676, __wbg_adapter_28);
         return ret;
     };
     imports.wbg.__wbindgen_debug_string = function(arg0, arg1) {
