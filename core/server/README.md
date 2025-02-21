@@ -4,7 +4,7 @@
 
 The `pipegate` middleware provides server-side verification and payment channel management for the PipeGate protocol. This guide covers the setup and configuration for API providers using the Rust implementation.
 
-NOTE : Only live on Base sepolia ( rpc: "https://base-sepolia-rpc.publicnode.com" )
+NOTE : Payment channel is only live on Base sepolia ( rpc: "https://base-sepolia-rpc.publicnode.com" ). Other payment methods support all networks.
 
 ## Installation
 
@@ -12,11 +12,13 @@ Add the following dependencies to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-pipegate = { version = "0.1.0" }  # PipeGate server middleware
+pipegate = { version = "0.5.0" }  # PipeGate server middleware
 axum = "0.7"                               # Web framework
 tokio = { version = "1.0", features = ["full"] }
 alloy = { version = "0.1", features = ["full"] }
 ```
+
+**_Note_**: Axum v0.8.0 has breaking changes. The pipegate tower-based middleware layers are not yet supported in the latest version.
 
 ## Basic Setup
 
@@ -34,15 +36,20 @@ async fn main() {
         "https://base-sepolia-rpc.publicnode.com".parse().unwrap();
 
     // Configure payment amount per request ( not in decimals, parsed down )
-    let payment_amount = U256::from(1000); // 0.001 USDC
+    let config = PaymentChannelConfig {
+        recipient: Address::from_str("YOUR_ADDRESS").unwrap(),
+        token_address: Address::from_str("USDC_ADDRESS").unwrap(),
+        amount: U256::from(1000), // 0.001 USDC in this case
+        rpc_url: rpc_url.to_string(),
+    };
 
     // Initialize channel state
-    let state = ChannelState::new(rpc_url.clone());
+    let state = ChannelState::new();
 
     // Create router with middleware
     let app = Router::new()
         .route("/", get(root))
-        .layer(PipegateMiddlewareLayer::new(state.clone(), payment_amount));
+        .layer(PipegateMiddlewareLayer::new(state, config));
 
     // Start server
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
@@ -201,20 +208,28 @@ async fn verify_onetime_payment_tx() {
 
 ## Verification functions
 
-1. [Verify and Update Channel State](https://github.com/Dhruv-2003/pipegate/blob/main/core/server/src/verify.rs#verify_and_update_channel): `verify_and_update_channel` - Verifies the signed request and updates the channel state. `ChannelState` is required to be persisted, better suited for serverful applications.
+1. [Verify and Update Channel State](https://github.com/Dhruv-2003/pipegate/blob/main/core/server/src/middleware/payment_channel/verify.rs#verify_and_update_channel): `verify_and_update_channel` - Verifies the signed request and updates the channel state. `ChannelState` is required to be persisted, better suited for serverful applications.
 
-2. [Verify Channel](https://github.com/Dhruv-2003/pipegate/blob/main/core/server/src/verify.rs#verify_channel): `verify_channel` - Verifies the signed request and returns the updated channel. `ChannelState` is not required to be persisted, better suited for serverless applications, but would add latency due to extra RPC calls to verify the channel info on each call.
+2. [Verify Channel](https://github.com/Dhruv-2003/pipegate/blob/main/core/server/src/middleware/payment_channel/verify.rs#verify_channel): `verify_channel` - Verifies the signed request and returns the updated channel. `ChannelState` is not required to be persisted, better suited for serverless applications, but would add latency due to extra RPC calls to verify the channel info on each call.
+
+3. [Verify Stream](https://github.com/Dhruv-2003/pipegate/blob/main/core/server/src/middleware/stream_payment/verify.rs#verify_stream): `verify_stream` - Verifies the stream payment request from onchain contracts
+
+4. [Verify Stream via indexer](https://github.com/Dhruv-2003/pipegate/blob/main/core/server/src/middleware/stream_payment/verify.rs#verify_stream_indexer): `verify_stream_indexer` - Verifies the stream payment request using indexer.
+
+5. [Verify one time tx](https://github.com/Dhruv-2003/pipegate/blob/main/core/server/src/middleware/one_time_payment/verify.rs#verify_stream_indexer): `verify_tx` - Verifies the one time payment tx from onchain records and logs
 
 ## Helper functions
 
-1. [Parse headers for payment channel with axum](https://github.com/Dhruv-2003/pipegate/blob/main/core/server/src/utils/headers.rs#parse_headers): `parse_headers` - Parsing and extracting signed request with payment channel from request headers
+1. [Parse headers for payment channel](https://github.com/Dhruv-2003/pipegate/blob/main/core/server/src/middleware/payment_channel/utils.rs#parse_headers): `parse_headers` - Parsing and extracting signed request with payment channel from request headers
 
-2. [Modify headers for updated channel with axum](https://github.com/Dhruv-2003/pipegate/blob/main/core/server/src/utils/headers.rs#modify_headers_axum): `modify_headers_axum` - Modifying response headers with updated channel state in axum.
+2. [Modify headers for updated channel with axum](https://github.com/Dhruv-2003/pipegate/blob/main/core/server/src/middleware/payment_channel/utils.rs#modify_headers_axum): `modify_headers_axum` - Modifying response headers with updated channel state in axum.
 
 3. [Modify headers for updated channel with HTTP](https://github.com/Dhruv-2003/pipegate/blob/main/core/server/src/utils/headers.rs#modify_headers):
    `modify_headers` - Modifying response headers with updated channel state in HTTP.
 
-4. [Parse headers for onetime payment tx](https://github.com/Dhruv-2003/pipegate/blob/main/core/server/src/utils/headers.rs#parse_tx_headers_axum): `parse_tx_headers_axum` - Parsing and extracting signed request with onetime payment tx from request headers
+4. [Parse headers for onetime payment tx](https://github.com/Dhruv-2003/pipegate/blob/main/core/server/src/middleware/one_time_payment/utils.rs#parse_tx_headers): `parse_tx_headers` - Parsing and extracting signed request with onetime payment tx from request headers
+
+5. [Parse headers for stream based request](https://github.com/Dhruv-2003/pipegate/blob/main/core/server/src/middleware/stream_payment/utils.rs#parse_stream_headers): `parse_stream_headers` - Parsing and extracting signed request with onetime payment tx from request headers
 
 ## Error Handling
 
@@ -245,7 +260,7 @@ async fn handle_request() -> Result<Response, AuthError> {
 The PipeGate middleware can be compiled to WebAssembly (WASM) for use in browser-based applications. The middleware can be compiled using the `wasm-pack` tool and integrated into web applications using JavaScript. Only a subset of functions are exported currently with `wasm-bindgen` and can be found in [wasm.rs](https://github.com/Dhruv-2003/pipegate/blob/main/core/server/src/wasm.rs). But other functions which are available can be easily exported as needed.
 
 ```bash
-wasm-pack build --target web
+wasm-pack build --target bundler --no-opt
 ```
 
 Example usage can be found at [tests/index.ts](https://github.com/Dhruv-2003/pipegate/blob/main/core/server/tests/index.ts)

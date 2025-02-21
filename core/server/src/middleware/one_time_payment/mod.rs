@@ -16,7 +16,7 @@ use axum::{
 use tower::{Layer, Service};
 
 use types::OneTimePaymentConfig;
-use utils::parse_tx_headers_axum;
+use utils::parse_tx_headers;
 use verify::verify_tx;
 
 use crate::error::AuthError;
@@ -81,7 +81,7 @@ where
             println!("\n=== onetime_tx_auth_middleware ===");
             println!("=== new request ===");
 
-            let signed_payment_tx = match parse_tx_headers_axum(&request.headers().clone()).await {
+            let signed_payment_tx = match parse_tx_headers(&request.headers().clone()).await {
                 Ok(tx) => tx,
                 Err(e) => return Ok(e.into_response()),
             };
@@ -120,7 +120,7 @@ pub async fn onetime_payment_auth_fn_middleware(
     println!("\n=== onetime_tx_auth_middleware ===");
     println!("=== new request ===");
 
-    let signed_payment_tx = match parse_tx_headers_axum(&request.headers().clone()).await {
+    let signed_payment_tx = match parse_tx_headers(&request.headers().clone()).await {
         Ok(tx) => tx,
         Err(e) => return Ok(e.into_response()),
     };

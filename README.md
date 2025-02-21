@@ -10,6 +10,8 @@ The Web3 Stripe for APIs. Create payment channels or streams, make API calls, pa
 
 PipeGate is a decentralized API monetization protocol that changes how APIs handle payments and access control. By replacing traditional API keys with payment channels, one time payments & streams, it enables true pay-per-call pricing without gas fees for each request.
 
+### Detailed documentation can be found at [docs.pipegate.xyz](https://docs.pipegate.xyz)
+
 **The protocol consists of three main components:**
 
 - A client-side middleware that automatically handles payment channel creation, request signing, and payment management
