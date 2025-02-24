@@ -2,12 +2,12 @@
 
 ## [V0.5.0] - 2025-02-22
 
-Breaking changes:
+Breaking Changes:
 
-- WASM files are now properly exported now, older versions might not work as expected.
-- TS SDK now can be used server side integrations as well with the new WASM functions.
+- Updated WASM file export implementation, which may impact compatibility with previous versions
+- TypeScript SDK now supports both client and server-side integrations through enhanced WASM functions
 
 ### Added
 
-- New WASM functions for stream & one time based verification exported
-- Added `StreamVerifier` for WASM support of stream based verifications with support for cache
+- Introduced new WASM functions supporting both streaming and one-time verification
+- Implemented `StreamVerifier` component with caching support for WASM-based stream verification
