@@ -282,7 +282,7 @@ async function setupApiClient() {
   // Create payment channel
   const channel = await pipeGate.createPaymentChannel({
     recipient: "0x123...",
-    duration: 30 * 24 * 60 * 60, // 30 days
+    duration: (365 / 12) * 24 * 60 * 60, // 30 days
     tokenAddress: "0x456...",
     amount: "100",
   });

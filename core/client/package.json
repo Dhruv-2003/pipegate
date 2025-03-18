@@ -2,18 +2,32 @@
   "name": "pipegate-sdk",
   "version": "0.5.0",
   "description": "A TypeScript client-side payment authentication SDK for stablecoins used with axios",
-  "main": "dist/index.js",
-  "module": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "type": "module",
+  "main": "dist/cjs/index.js",
+  "module": "dist/esm/index.js",
+  "types": "dist/esm/index.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "default": "./dist/esm/index.js",
+        "wasm": "./dist/esm/wasm/pipegate.js"
+      },
+      "require": {
+        "default": "./dist/cjs/index.js",
+        "wasm": "./dist/cjs/wasm/pipegate.js"
+      },
+      "types": "./dist/index.d.ts"
+    }
+  },
   "files": [
     "dist",
-    "dist/wasm"
+    "dist/esm",
+    "dist/cjs"
   ],
   "scripts": {
-    "wasm:build": "mkdir -p dist/wasm && cp -r src/wasm/* ./dist/wasm",
-    "watch": "tsc --watch --project tsconfig.json && npm run wasm:build ",
-    "dev": "tsc --hot --project tsconfig.json && npm run wasm:build",
-    "build": "tsc --project tsconfig.json && npm run wasm:build"
+    "cjs:build": "tsc --outDir dist/cjs --module CommonJS && mkdir -p dist/cjs/wasm && cp -r src/wasm/cjs/* ./dist/cjs/wasm",
+    "esm:build": "tsc --outDir dist/esm --module ESNext && mkdir -p dist/esm/wasm && cp src/wasm/pipegate.js src/wasm/pipegate.d.ts src/wasm/pipegate_bg.wasm.d.ts ./dist/esm/wasm",
+    "build": "rm -rf dist && npm run cjs:build && npm run esm:build"
   },
   "repository": {
     "type": "git",
@@ -33,7 +47,7 @@
     "@types/node": "^22.9.0"
   },
   "peerDependencies": {
-    "axios": "^1.7.7",
+    "axios": "^1.x",
     "typescript": "^5.7.2"
   },
   "dependencies": {

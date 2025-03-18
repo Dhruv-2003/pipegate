@@ -1,16 +1,18 @@
 {
   "compilerOptions": {
-    "lib": ["ESNext", "DOM"], // Include ES and DOM APIs
-    "target": "ES5", // Broader compatibility
-    "module": "CommonJS", // Node.js compatibility
-    "outDir": "./dist", // Output directory for compiled files
+    "lib": ["ESNext"], // Include ES and DOM APIs
+    "target": "ESNext",
+    "module": "ESNext",
+    "outDir": "./dist/esm", // Output directory for compiled files
     "declaration": true, // Emit .d.ts files
-    "declarationDir": "./dist", // Directory for .d.ts files
+    // "declarationDir": "./dist", // Directory for .d.ts files
     "strict": true, // Enable all strict TypeScript checks
     "moduleResolution": "node", // Resolve modules like Node.js
     "esModuleInterop": true, // Allow default imports from CommonJS
     "skipLibCheck": true, // Skip checking declaration files
-    "forceConsistentCasingInFileNames": true // Enforce consistent casing
+    "forceConsistentCasingInFileNames": true, // Enforce consistent casing
+    "resolveJsonModule": true, // Allow importing JSON files
+    "allowSyntheticDefaultImports": true // Allow default imports from modules with no default export
   },
   "include": ["src/**/*.ts"],
   "exclude": ["node_modules", "dist"]
