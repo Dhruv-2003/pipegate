@@ -1,4 +1,4 @@
-import { ClientInterceptor } from "./client";
+import { ClientInterceptor } from "./client.js";
 import {
   type CreateChannelResponse,
   type CreateChannelParams,

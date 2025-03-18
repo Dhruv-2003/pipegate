@@ -5,7 +5,7 @@ import type {
   RequestConfig,
   SignedRequest,
 } from "./types";
-import { channelFactoryABI } from "./abi/channelFactory";
+import { channelFactoryABI } from "./abi/channelFactory.js";
 import "dotenv/config";
 import {
   concat,
@@ -22,11 +22,11 @@ import {
   toHex,
   type Account,
 } from "viem";
-import { formatAxiosError } from "./utils";
+import { formatAxiosError } from "./utils/index.js";
 import axios, { type InternalAxiosRequestConfig } from "axios";
 import { privateKeyToAccount } from "viem/accounts";
 import { baseSepolia } from "viem/chains";
-import { ChannelFactoryAddress } from "./constants/address";
+import { ChannelFactoryAddress } from "./constants/address.js";
 
 export class ClientInterceptor {
   private nonceMap: Map<string, number> = new Map();
@@ -325,8 +325,8 @@ export class ClientInterceptor {
           );
 
           console.log("Adding headers to request:");
-          config.headers = new axios.AxiosHeaders({
-            ...config.headers,
+
+          config.headers.set({
             "x-Message": signedRequest.message,
             "x-Signature": signedRequest.signature,
             "x-Timestamp": signedRequest.timestamp,
@@ -335,12 +335,6 @@ export class ClientInterceptor {
 
           return config;
         } catch (err) {
-          // if (axios.isAxiosError(err)) {
-          //   // console.error(formatAxiosError(err));
-          //   console.error("Error -kushagra2:");
-          // } else {
-          //   console.error("Error -kushagra2:");
-          // }
           throw err;
         }
       },
@@ -358,8 +352,7 @@ export class ClientInterceptor {
           const signedRequest = await this.signOneTimePaymentRequest(txHash);
 
           console.log("Adding headers to request:");
-          config.headers = new axios.AxiosHeaders({
-            ...config.headers,
+          config.headers.set({
             "X-Signature": signedRequest.signature,
             "X-Transaction": txHash,
             "X-Timestamp": signedRequest.timestamp,
@@ -367,12 +360,6 @@ export class ClientInterceptor {
 
           return config;
         } catch (err) {
-          // if (axios.isAxiosError(err)) {
-          //   // console.error(formatAxiosError(err));
-          //   console.error("Error -kushagra2:");
-          // } else {
-          //   console.error("Error -kushagra2:");
-          // }
           throw err;
         }
       },
@@ -390,8 +377,8 @@ export class ClientInterceptor {
           const signedRequest = await this.signStreamRequest(sender);
 
           console.log("Adding headers to request:");
-          config.headers = new axios.AxiosHeaders({
-            ...config.headers,
+
+          config.headers.set({
             "X-Signature": signedRequest.signature,
             "X-Sender": sender,
             "X-Timestamp": signedRequest.timestamp,
@@ -399,12 +386,6 @@ export class ClientInterceptor {
 
           return config;
         } catch (err) {
-          // if (axios.isAxiosError(err)) {
-          //   // console.error(formatAxiosError(err));
-          //   console.error("Error -kushagra2:");
-          // } else {
-          //   console.error("Error -kushagra2:");
-          // }
           throw err;
         }
       },
@@ -446,13 +427,6 @@ export class ClientInterceptor {
 
           return response;
         } catch (err) {
-          // if (axios.isAxiosError(err)) {
-          //   // console.error(formatAxiosError(err));
-          //   console.error("Error -kushagra3:");
-          // } else {
-          //   // console.error("Error:", err.message);
-          //   console.error("Error -kushagra3:");
-          // }
           throw err;
         }
       },
