@@ -27,7 +27,7 @@ const dummyPaymentChannelCall = {
 
 async function verifyPaymentChannelCall() {
   try {
-    await initWasm();
+    await initWasm("../src/wasm/pipegate_bg.wasm");
 
     let config_json = {
       recipient: "0x62C43323447899acb61C18181e34168903E033Bf",
@@ -61,7 +61,7 @@ const dummyStreamCall = {
 
 async function verifyStreamsCall() {
   try {
-    await initWasm();
+    await initWasm("../src/wasm/pipegate_bg.wasm");
 
     let config_json = {
       recipient: "0x62C43323447899acb61C18181e34168903E033Bf",
@@ -100,7 +100,8 @@ const dummyOneTimeCall = {
 
 async function verifyOneTimePayment() {
   try {
-    await initWasm();
+    await initWasm("../src/wasm/pipegate_bg.wasm");
+
     let config_json = {
       recipient: "0x62C43323447899acb61C18181e34168903E033Bf",
       token_address: "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
