@@ -1,5 +1,7 @@
 # PipeGate
 
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/Dhruv-2003/pipegate)
+
 <!-- Pay-per-Call API Monetisation - The Web3 Stripe for APIs -->
 
 The Web3 Stripe for APIs. Create payment channels or streams, make API calls, payments happen automatically. No API keys, no gas fees per request, just use your wallet and start building.
