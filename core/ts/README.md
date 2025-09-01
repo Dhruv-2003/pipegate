@@ -1,4 +1,4 @@
-# PipeGate Client SDK Documentation
+# PipeGate TS SDK Documentation
 
 ## Overview
 
