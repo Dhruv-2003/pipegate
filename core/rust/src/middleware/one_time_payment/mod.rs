@@ -1,3 +1,4 @@
+pub mod state;
 pub mod types;
 pub mod utils;
 pub mod verify;
@@ -15,6 +16,7 @@ use axum::{
 
 use tower::{Layer, Service};
 
+use state::OneTimePaymentState;
 use types::OneTimePaymentConfig;
 use utils::parse_tx_headers;
 use verify::verify_tx;
@@ -26,12 +28,13 @@ use crate::error::AuthError;
 #[cfg(not(target_arch = "wasm32"))]
 pub struct OnetimePaymentMiddlewareLayer {
     pub config: OneTimePaymentConfig,
+    pub state: OneTimePaymentState,
 }
 
 #[cfg(not(target_arch = "wasm32"))]
 impl OnetimePaymentMiddlewareLayer {
-    pub fn new(config: OneTimePaymentConfig) -> Self {
-        Self { config }
+    pub fn new(config: OneTimePaymentConfig, state: OneTimePaymentState) -> Self {
+        Self { config, state }
     }
 }
 
@@ -42,6 +45,7 @@ impl<S> Layer<S> for OnetimePaymentMiddlewareLayer {
     fn layer(&self, service: S) -> Self::Service {
         OnetimePaymentMiddleware {
             config: self.config.clone(),
+            state: self.state.clone(),
             inner: service,
         }
     }
@@ -52,6 +56,7 @@ impl<S> Layer<S> for OnetimePaymentMiddlewareLayer {
 pub struct OnetimePaymentMiddleware<S> {
     inner: S,
     config: OneTimePaymentConfig,
+    state: OneTimePaymentState,
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -74,6 +79,7 @@ where
 
     fn call(&mut self, request: Request<Body>) -> Self::Future {
         let config = self.config.clone();
+        let state = self.state.clone();
         let mut inner = self.inner.clone();
 
         // #[cfg(not(target_arch = "wasm32"))]
@@ -86,30 +92,78 @@ where
                 Err(e) => return Ok(e.into_response()),
             };
 
-            let verify = match verify_tx(signed_payment_tx, config).await {
-                Ok(v) => v,
-                Err(e) => return Ok(e.into_response()),
+            let tx_hash = signed_payment_tx.tx_hash;
+            let current_time = if cfg!(target_arch = "wasm32") {
+                use js_sys::Date;
+
+                (Date::now() / 1000.0) as u64
+            } else {
+                std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap()
+                    .as_secs()
             };
 
-            if verify {
-                println!("Verified");
-                println!("=== end middleware check ===");
+            // Check if payment exists in state
+            if let Some(_) = state.get(tx_hash).await {
+                println!("Found existing payment in state");
 
-                inner.call(request).await
+                // Use custom period_ttl_sec if set in config, otherwise fallback to hardcoded values
+                let custom_session_ttl = config.period_ttl_sec;
+
+                // Check if the payment is still valid for redemption
+                if state.is_valid_for_redemption_with_period(tx_hash, current_time, None, custom_session_ttl).await {
+                    println!("Payment is valid for redemption");
+
+                    // Increment redemption count
+                    if let Some(_) = state.increment_redemptions(tx_hash).await {}
+
+                    println!("=== end middleware check ===");
+                    inner.call(request).await
+                } else {
+                    println!("Payment is no longer valid for redemption");
+                    Ok(AuthError::InvalidTransaction(
+                        "Payment session expired or max redemptions reached".to_string(),
+                    )
+                    .into_response())
+                }
             } else {
-                Ok(
-                    AuthError::InvalidTransaction("Authentication failed".to_string())
-                        .into_response(),
-                )
+                println!("New payment - verifying transaction");
+
+                // First time seeing this payment, verify the transaction
+                let (new_payment, verify) = match verify_tx(signed_payment_tx.clone(), config).await
+                {
+                    Ok(v) => v,
+                    Err(e) => return Ok(e.into_response()),
+                };
+
+                if verify {
+                    println!("Transaction verified successfully");
+
+                    state.set(tx_hash, new_payment).await;
+                    println!("Added new payment to state");
+
+                    state.increment_redemptions(tx_hash).await;
+                    println!("=== end middleware check ===");
+
+                    inner.call(request).await
+                } else {
+                    println!("Transaction verification failed");
+                    Ok(
+                        AuthError::InvalidTransaction("Authentication failed".to_string())
+                            .into_response(),
+                    )
+                }
             }
         })
     }
 }
 
-//* ONE TIME PAYENT MIDDLEWARE LOGIC */
+//* ONE TIME PAYMENT MIDDLEWARE LOGIC */
 #[derive(Clone)]
 pub struct OneTimePaymentFnMiddlewareState {
     pub config: OneTimePaymentConfig,
+    pub payment_state: OneTimePaymentState,
 }
 
 pub async fn onetime_payment_auth_fn_middleware(
@@ -125,17 +179,69 @@ pub async fn onetime_payment_auth_fn_middleware(
         Err(e) => return Ok(e.into_response()),
     };
 
-    let verify = match verify_tx(signed_payment_tx, state.config).await {
-        Ok(v) => v,
-        Err(e) => return Ok(e.into_response()),
-    };
+    let tx_hash = signed_payment_tx.tx_hash;
+    let current_time = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs();
 
-    if verify {
-        println!("Verified");
-        println!("=== end middleware check ===");
+    // Check if payment exists in state
+    if let Some(existing_payment) = state.payment_state.get(tx_hash).await {
+        println!("Found existing payment in state");
 
-        Ok(next.run(request).await)
+        // Use custom period_ttl_sec if set in config, otherwise fallback to hardcoded values
+        let custom_session_ttl = state.config.period_ttl_sec;
+
+        // Check if the payment is still valid for redemption
+        if state
+            .payment_state
+            .is_valid_for_redemption_with_period(tx_hash, current_time, None, custom_session_ttl)
+            .await
+        {
+            println!("Payment is valid for redemption");
+
+            // Set first redeemed timestamp if this is the first time
+            if existing_payment.first_reedemed == 0 {
+                state
+                    .payment_state
+                    .set_first_redeemed(tx_hash, current_time)
+                    .await;
+                println!("Set first redemption timestamp");
+            }
+
+            // Increment redemption count
+            if let Some(new_count) = state.payment_state.increment_redemptions(tx_hash).await {
+                println!("Incremented redemptions to: {}", new_count);
+            }
+
+            println!("=== end middleware check ===");
+            Ok(next.run(request).await)
+        } else {
+            println!("Payment is no longer valid for redemption");
+            Err(StatusCode::UNAUTHORIZED)
+        }
     } else {
-        Err(StatusCode::UNAUTHORIZED)
+        println!("New payment - verifying transaction");
+
+        // First time seeing this payment, verify the transaction
+        let (new_payment, verify) = match verify_tx(signed_payment_tx.clone(), state.config).await {
+            Ok(v) => v,
+            Err(e) => return Ok(e.into_response()),
+        };
+
+        if verify {
+            println!("Transaction verified successfully");
+
+            state.payment_state.set(tx_hash, new_payment).await;
+            println!("Added new payment to state");
+
+            state.payment_state.increment_redemptions(tx_hash).await;
+            println!("=== end middleware check ===");
+
+            Ok(next.run(request).await)
+        } else {
+            println!("Transaction verification failed");
+            Err(StatusCode::UNAUTHORIZED)
+        }
     }
 }

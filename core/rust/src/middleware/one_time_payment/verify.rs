@@ -5,13 +5,14 @@ use alloy::{
     providers::{Provider, ProviderBuilder},
 };
 
+use js_sys::Date;
 #[cfg(target_arch = "wasm32")]
 use js_sys::Date;
 
 use crate::{
     error::AuthError,
     middleware::one_time_payment::{
-        types::{OneTimePaymentConfig, SignedPaymentTx},
+        types::{OneTimePayment, OneTimePaymentConfig, SignedPaymentTx, ABS_WINDOW_SEC},
         utils::create_tx_message,
     },
 };
@@ -20,7 +21,7 @@ use crate::{
 pub async fn verify_tx(
     signed_tx: SignedPaymentTx,
     config: OneTimePaymentConfig,
-) -> Result<bool, AuthError> {
+) -> Result<(OneTimePayment, bool), AuthError> {
     // creating the message
     let reconstructed_message = create_tx_message(signed_tx.tx_hash);
     println!("Message: 0x{}", hex::encode(&reconstructed_message));
@@ -59,7 +60,7 @@ pub async fn verify_tx(
     // Match the contract interacted with to be the token contract
     match tx_receipt.to {
         Some(to) => {
-            if to != config.token_address {
+            if to != config.recipient {
                 return Err(AuthError::InvalidTransaction(
                     "Invalid token contract address".to_string(),
                 ));
@@ -89,6 +90,32 @@ pub async fn verify_tx(
 
     // Check if the log is a transfer log & verify the topics and data
     if transfer_log.address() == config.token_address {
+        // Verify the log timestamp is within the allowed period
+        let current_time = if cfg!(target_arch = "wasm32") {
+            (Date::now() / 1000.0) as u64
+        } else {
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_secs()
+        };
+
+        match transfer_log.block_timestamp {
+            Some(timestamp) => {
+                let log_time = timestamp;
+                if current_time < log_time || current_time - log_time > ABS_WINDOW_SEC {
+                    return Err(AuthError::InvalidTransaction(
+                        "Transaction outside valid period".to_string(),
+                    ));
+                }
+            }
+            None => {
+                return Err(AuthError::InvalidTransaction(
+                    "Block timestamp not found".to_string(),
+                ))
+            }
+        }
+
         match transfer_log.topics().get(2) {
             Some(t) => {
                 let to = Address::from_word(t.clone());
@@ -115,7 +142,23 @@ pub async fn verify_tx(
             }
             None => return Err(AuthError::InvalidTransaction("Topic not found".to_string())),
         }
-    }
 
-    Ok(true)
+        let payment = OneTimePayment {
+            tx_hash: signed_tx.tx_hash,
+            sender: tx_receipt.from,
+            payment_timestamp: if let Some(ts) = transfer_log.block_timestamp {
+                ts
+            } else {
+                0
+            },
+            first_reedemed: current_time, // Set on first access
+            redemptions: 0,
+        };
+
+        return Ok((payment, true));
+    } else {
+        return Err(AuthError::InvalidTransaction(
+            "Invalid Token used for payment".to_string(),
+        ));
+    }
 }

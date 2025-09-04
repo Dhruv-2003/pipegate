@@ -34,7 +34,7 @@ mod tests {
             recipient: Address::from_str("0x62c43323447899acb61c18181e34168903e033bf").unwrap(),
             token_address: Address::from_str("0x036CbD53842c5426634e7929541eC2318f3dCF7e").unwrap(),
             amount: U256::from(1000000), // 1 USDC
-            period: U256::from(0),
+            period_ttl_sec: None,
             rpc_url: rpc_url.to_string(),
         };
 
@@ -47,7 +47,9 @@ mod tests {
         println!("Result: {:?}", result);
 
         assert_eq!(result.is_ok(), true);
-        assert_eq!(result.unwrap(), true);
+
+        let (_, is_valid) = result.unwrap();
+        assert_eq!(is_valid, true);
     }
 
     #[tokio::test]

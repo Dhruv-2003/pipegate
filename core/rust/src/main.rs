@@ -9,7 +9,9 @@ pub async fn main() {
     use alloy::primitives::aliases::I96;
 
     use pipegate::middleware::{
-        one_time_payment::{types::OneTimePaymentConfig, OnetimePaymentMiddlewareLayer},
+        one_time_payment::{
+            state::OneTimePaymentState, types::OneTimePaymentConfig, OnetimePaymentMiddlewareLayer,
+        },
         payment_channel::{
             channel::ChannelState, types::PaymentChannelConfig, PaymentChannelMiddlewareLayer,
         },
@@ -40,11 +42,12 @@ pub async fn main() {
     };
 
     // **** ONE TIME PAYMENT CONFIG ****
+    let onetime_payment_state = OneTimePaymentState::new();
     let onetime_payment_config = OneTimePaymentConfig {
         recipient: Address::from_str("0x62c43323447899acb61c18181e34168903e033bf").unwrap(),
         token_address: Address::from_str("0x036CbD53842c5426634e7929541eC2318f3dCF7e").unwrap(),
         amount: U256::from(1000000), // 1 USDC
-        period: U256::from(0),
+        period_ttl_sec: None,
         rpc_url: rpc_url.to_string(),
     };
 
@@ -71,7 +74,10 @@ pub async fn main() {
         )
         .route(
             "/one-time",
-            get(one_time).route_layer(OnetimePaymentMiddlewareLayer::new(onetime_payment_config)),
+            get(one_time).route_layer(OnetimePaymentMiddlewareLayer::new(
+                onetime_payment_config,
+                onetime_payment_state,
+            )),
         )
         .route(
             "/stream",
