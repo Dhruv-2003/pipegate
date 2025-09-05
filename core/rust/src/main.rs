@@ -15,14 +15,12 @@ pub async fn main() {
         payment_channel::{
             channel::ChannelState, types::PaymentChannelConfig, PaymentChannelMiddlewareLayer,
         },
-        state::MiddlewareState,
         stream_payment::{
             state::StreamState,
             types::{StreamListenerConfig, StreamsConfig},
             StreamListner, StreamMiddlewareLayer,
         },
-        types::{MiddlewareConfig, Scheme, SchemeConfig},
-        PaymentMiddlewareLayer,
+        MiddlewareConfig, MiddlewareState, PipegateMiddlewareLayer, Scheme, SchemeConfig,
     };
 
     // a mock server implementation using axum
@@ -103,7 +101,7 @@ pub async fn main() {
         )
         .route(
             "/test",
-            get(root).route_layer(PaymentMiddlewareLayer::new(
+            get(root).route_layer(PipegateMiddlewareLayer::new(
                 middleware_state,
                 middleware_config,
             )),

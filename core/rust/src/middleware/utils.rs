@@ -9,9 +9,10 @@ use std::str::FromStr;
 use crate::{
     error::AuthError,
     middleware::{
+        one_time_payment::types::SignedPaymentTx,
         payment_channel::types::PaymentChannel,
         stream_payment::types::{SignedStream, SUPERFLUID_TOKEN_LIST},
-        types::{ChannelPayload, StreamPayload, CHAINLIST_API},
+        types::{ChannelPayload, OneTimePayload, StreamPayload, CHAINLIST_API},
     },
 };
 
@@ -59,6 +60,13 @@ pub async fn convert_tx_hash(tx_hash: &String) -> Result<FixedBytes<32>, AuthErr
     });
 
     return tx_hash.map(|h| FixedBytes::<32>::from_slice(&h));
+}
+
+pub async fn parse_onetime_payload(payload: &OneTimePayload) -> Result<SignedPaymentTx, AuthError> {
+    let signature = convert_signature(&payload.signature).await?;
+    let tx_hash = convert_tx_hash(&payload.tx_hash).await?;
+
+    Ok(SignedPaymentTx { signature, tx_hash })
 }
 
 pub async fn parse_stream_payload(payload: &StreamPayload) -> Result<SignedStream, AuthError> {

@@ -1,8 +1,12 @@
 pub mod one_time_payment;
 pub mod payment_channel;
-pub mod state;
 pub mod stream_payment;
-pub mod types;
+
+pub use state::MiddlewareState;
+pub use types::{MiddlewareConfig, Scheme, SchemeConfig};
+
+pub(crate) mod state;
+pub(crate) mod types;
 
 mod utils;
 
@@ -14,41 +18,36 @@ use tower::{Layer, Service};
 use crate::{
     error::AuthError,
     middleware::{
-        one_time_payment::{
-            types::{OneTimePaymentConfig, SignedPaymentTx},
-            verify::verify_tx,
-        },
+        one_time_payment::{types::OneTimePaymentConfig, verify::verify_tx},
         payment_channel::{types::PaymentChannelConfig, verify::verify_and_update_channel},
-        state::MiddlewareState,
         stream_payment::{
             types::{StreamsConfig, CFA_V1_FORWARDER_ADDRESS},
             verify::verify_stream,
         },
-        types::{MiddlewareConfig, PaymentHeader, PaymentPayload, Scheme},
+        types::{PaymentHeader, PaymentPayload},
         utils::{
-            convert_signature, convert_tx_hash, get_current_time, parse_channel_payload,
-            parse_stream_payload,
+            get_current_time, parse_channel_payload, parse_onetime_payload, parse_stream_payload,
         },
     },
 };
 
 #[derive(Clone)]
-pub struct PaymentMiddlewareLayer {
+pub struct PipegateMiddlewareLayer {
     pub state: MiddlewareState,
     pub config: MiddlewareConfig,
 }
 
-impl PaymentMiddlewareLayer {
+impl PipegateMiddlewareLayer {
     pub fn new(state: MiddlewareState, config: MiddlewareConfig) -> Self {
         Self { state, config }
     }
 }
 
-impl<S> Layer<S> for PaymentMiddlewareLayer {
-    type Service = PaymentMiddleware<S>;
+impl<S> Layer<S> for PipegateMiddlewareLayer {
+    type Service = PipegateMiddleware<S>;
 
     fn layer(&self, service: S) -> Self::Service {
-        PaymentMiddleware {
+        PipegateMiddleware {
             inner: service,
             state: self.state.clone(),
             config: self.config.clone(),
@@ -57,13 +56,13 @@ impl<S> Layer<S> for PaymentMiddlewareLayer {
 }
 
 #[derive(Clone)]
-pub struct PaymentMiddleware<S> {
+pub struct PipegateMiddleware<S> {
     inner: S,
     state: MiddlewareState,
     config: MiddlewareConfig,
 }
 
-impl<S> Service<Request<Body>> for PaymentMiddleware<S>
+impl<S> Service<Request<Body>> for PipegateMiddleware<S>
 where
     S: Service<Request<Body>, Response = Response> + Clone + Send + 'static,
     S::Future: Send + 'static,
@@ -148,19 +147,9 @@ where
                             period_ttl_sec: None,
                         };
 
-                        let signature = match convert_signature(&payload.signature).await {
-                            Ok(s) => s,
+                        let payment = match parse_onetime_payload(&payload).await {
+                            Ok(p) => p,
                             Err(e) => return Ok(create_x402_response(e)),
-                        };
-
-                        let tx_hash = match convert_tx_hash(&payload.tx_hash).await {
-                            Ok(h) => h,
-                            Err(e) => return Ok(create_x402_response(e)),
-                        };
-
-                        let payment: SignedPaymentTx = SignedPaymentTx {
-                            signature: signature,
-                            tx_hash: tx_hash,
                         };
 
                         if state.one_time_payment_state.is_none() {
@@ -171,13 +160,13 @@ where
                         let one_time_payment_state = state.one_time_payment_state.unwrap();
                         let current_time = get_current_time();
 
-                        if let Some(_) = one_time_payment_state.get(tx_hash).await {
+                        if let Some(_) = one_time_payment_state.get(payment.tx_hash).await {
                             println!("Found existing payment in state");
 
                             // Check if the payment is still valid for redemption
                             if one_time_payment_state
                                 .is_valid_for_redemption_with_period(
-                                    tx_hash,
+                                    payment.tx_hash,
                                     current_time,
                                     None,
                                     None,
@@ -186,7 +175,9 @@ where
                             {
                                 println!("Payment is valid for redemption");
 
-                                one_time_payment_state.increment_redemptions(tx_hash).await;
+                                one_time_payment_state
+                                    .increment_redemptions(payment.tx_hash)
+                                    .await;
                                 println!("=== end middleware check ===");
                             } else {
                                 println!("Payment is no longer valid for redemption");
@@ -200,7 +191,7 @@ where
 
                             // First time seeing this payment, verify the transaction
                             let (new_payment, verify) =
-                                match verify_tx(payment, onetime_config).await {
+                                match verify_tx(payment.clone(), onetime_config).await {
                                     Ok(v) => v,
                                     Err(e) => return Ok(create_x402_response(e)),
                                 };
@@ -214,10 +205,14 @@ where
 
                             println!("Transaction verified successfully");
 
-                            one_time_payment_state.set(tx_hash, new_payment).await;
+                            one_time_payment_state
+                                .set(payment.clone().tx_hash, new_payment)
+                                .await;
                             println!("Added new payment to state");
 
-                            one_time_payment_state.increment_redemptions(tx_hash).await;
+                            one_time_payment_state
+                                .increment_redemptions(payment.clone().tx_hash)
+                                .await;
                             println!("=== end middleware check ===");
                         }
                         Ok(())
