@@ -189,7 +189,7 @@ pub fn verify_onetime_payment_tx(
 
         let signed_payment_tx = SignedPaymentTx { signature, tx_hash };
 
-        let result = verify_tx(signed_payment_tx, onetime_payment_config)
+        let (payment, result) = verify_tx(signed_payment_tx, onetime_payment_config)
             .await
             .map_err(|e| JsValue::from_str(&format!("Verification failed: {}", e)))?;
 
