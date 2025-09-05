@@ -97,6 +97,30 @@ pub async fn get_chain_id(rpc_url: &String) -> Result<u64, AuthError> {
 }
 
 pub async fn get_chain_name(chain_id: &u64) -> Result<String, AuthError> {
+    // Lookup match records first before falling back to chainlist
+    match chain_id {
+        // Ethereum mainnets
+        1 => return Ok("ethereum".to_string()),
+        137 => return Ok("polygon".to_string()),
+        42161 => return Ok("arbitrum".to_string()),
+        10 => return Ok("optimism".to_string()),
+        56 => return Ok("bsc".to_string()),
+        8453 => return Ok("base".to_string()),
+        43114 => return Ok("avalanche".to_string()),
+        42220 => return Ok("celo".to_string()),
+        324 => return Ok("zksync-era".to_string()),
+
+        // Testnets
+        11155111 => return Ok("sepolia".to_string()),
+        421614 => return Ok("arbitrum-sepolia".to_string()), // replaces Goerli
+        84532 => return Ok("base-sepolia".to_string()),
+        11155420 => return Ok("optimism-sepolia".to_string()),
+        43113 => return Ok("avalanche-fuji".to_string()),
+        44787 => return Ok("celo-alfajores".to_string()),
+
+        _ => {}
+    }
+
     let response = reqwest::get(CHAINLIST_API)
         .await
         .map_err(|e| AuthError::ContractError(e.to_string()))?
@@ -111,7 +135,7 @@ pub async fn get_chain_name(chain_id: &u64) -> Result<String, AuthError> {
     for chain in chains {
         if let Some(id) = chain["chainId"].as_u64() {
             if &id == chain_id {
-                if let Some(name) = chain["chainSlug"].as_str() {
+                if let Some(name) = chain["shortName"].as_str() {
                     return Ok(name.to_string());
                 }
             }
