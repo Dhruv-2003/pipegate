@@ -15,11 +15,14 @@ pub async fn main() {
         payment_channel::{
             channel::ChannelState, types::PaymentChannelConfig, PaymentChannelMiddlewareLayer,
         },
+        state::MiddlewareState,
         stream_payment::{
             state::StreamState,
             types::{StreamListenerConfig, StreamsConfig},
             StreamListner, StreamMiddlewareLayer,
         },
+        types::{MiddlewareConfig, Scheme, SchemeConfig},
+        PaymentMiddlewareLayer,
     };
 
     // a mock server implementation using axum
@@ -64,6 +67,18 @@ pub async fn main() {
     let stream_state_clone = stream_state.clone();
     let stream_payment_config_clone = stream_payment_config.clone();
 
+    // *** PAYMENTR MIDDLEWARE LAYER ***
+
+    let middleware_state = MiddlewareState::new();
+    let onetime_payment = SchemeConfig::new(
+        Scheme::OneTimePayments,
+        rpc_url.to_string(),
+        Address::from_str("0x036CbD53842c5426634e7929541eC2318f3dCF7e").unwrap(),
+        Address::from_str("0x62c43323447899acb61c18181e34168903e033bf").unwrap(),
+        "1".to_string(),
+    );
+    let middleware_config = MiddlewareConfig::new(vec![onetime_payment.await]);
+
     let app = Router::new()
         .route(
             "/",
@@ -84,6 +99,13 @@ pub async fn main() {
             get(stream).route_layer(StreamMiddlewareLayer::new(
                 stream_payment_config,
                 stream_state,
+            )),
+        )
+        .route(
+            "/test",
+            get(root).route_layer(PaymentMiddlewareLayer::new(
+                middleware_state,
+                middleware_config,
             )),
         );
 

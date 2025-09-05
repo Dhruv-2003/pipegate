@@ -6,6 +6,11 @@ use axum::{
 use serde_json::json;
 use thiserror::Error;
 
+use crate::middleware::{
+    one_time_payment::types::{ABS_WINDOW_SEC, MAX_REDEMPTIONS, SESSION_TTL_SEC},
+    types::{PaymentRequiredAccept, PaymentRequiredResponse},
+};
+
 #[derive(Error, Debug, Clone)]
 pub enum AuthError {
     #[error("Missing required headers")]
@@ -48,6 +53,8 @@ pub enum AuthError {
     InvalidStream(String),
     #[error("Invalid sender")]
     InvalidSender,
+    #[error("Payment scheme not accepted")]
+    SchemeNotAccepted,
 }
 
 impl From<AuthError> for StatusCode {
@@ -73,13 +80,68 @@ impl From<AuthError> for StatusCode {
             AuthError::InvalidTransaction(_) => StatusCode::BAD_REQUEST,
             AuthError::InvalidStream(_) => StatusCode::BAD_REQUEST,
             AuthError::InvalidSender => StatusCode::BAD_REQUEST,
+            AuthError::SchemeNotAccepted => StatusCode::FORBIDDEN,
         }
+    }
+}
+
+impl AuthError {
+    pub fn into_payment_required_response(self, accepts: Vec<PaymentRequiredAccept>) -> Response {
+        let payment_required = PaymentRequiredResponse {
+            x402_version: 1,
+            accepts,
+            error: self.to_string(),
+        };
+
+        let status = StatusCode::PAYMENT_REQUIRED;
+        (status, Json(payment_required)).into_response()
+    }
+
+    pub fn into_x402_response(
+        self,
+        config: &crate::middleware::types::MiddlewareConfig,
+        resource: &str,
+    ) -> Response {
+        let accepts: Vec<PaymentRequiredAccept> = config
+            .accepts
+            .iter()
+            .map(|scheme_config| {
+                let extra = match scheme_config.scheme {
+                    crate::middleware::types::Scheme::OneTimePayments => Some(serde_json::json!({
+                        "absWindowSeconds": ABS_WINDOW_SEC,
+                        "sessionTTLSeconds": SESSION_TTL_SEC,
+                        "maxRedemptions": MAX_REDEMPTIONS
+                    })),
+                    crate::middleware::types::Scheme::SuperfluidStreams => None,
+                    crate::middleware::types::Scheme::PaymentChannels => {
+                        Some(serde_json::json!("paymentChannelState"))
+                    }
+                };
+
+                PaymentRequiredAccept {
+                    scheme: scheme_config.scheme.to_string().to_string(),
+                    network: scheme_config.chain_name.clone(),
+                    amount: scheme_config.amount.clone(),
+                    pay_to: scheme_config.recipient.to_string(),
+                    asset: scheme_config.token_address.to_string(),
+                    resource: resource.to_string(),
+                    description: Some(format!("Access to {} resource", resource)),
+                    max_timeout_seconds: Some(300), // 5 minutes default
+                    extra,
+                }
+            })
+            .collect();
+
+        self.into_payment_required_response(accepts)
     }
 }
 
 impl IntoResponse for AuthError {
     fn into_response(self) -> Response {
-        let status: StatusCode = self.clone().into(); // Convert AuthError to StatusCode
+        // let status: StatusCode = self.clone().into(); // Convert AuthError to StatusCode
+
+        // Returning the 402 Payment Required as all the errors are related to payment/auth middleware here, keeping this consistent
+        let status = StatusCode::PAYMENT_REQUIRED;
         let body = Json(json!({ "error": self.to_string() })); // Use the error message
         (status, body).into_response()
     }

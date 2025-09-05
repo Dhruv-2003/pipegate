@@ -1,3 +1,437 @@
 pub mod one_time_payment;
 pub mod payment_channel;
+pub mod state;
 pub mod stream_payment;
+pub mod types;
+
+mod utils;
+
+use alloy::primitives::{aliases::I96, Address, U256};
+use axum::{body::Body, http::Request, response::Response};
+use std::{future::Future, pin::Pin, str::FromStr};
+use tower::{Layer, Service};
+
+use crate::{
+    error::AuthError,
+    middleware::{
+        one_time_payment::{
+            types::{OneTimePaymentConfig, SignedPaymentTx},
+            verify::verify_tx,
+        },
+        payment_channel::{types::PaymentChannelConfig, verify::verify_and_update_channel},
+        state::MiddlewareState,
+        stream_payment::{
+            types::{StreamsConfig, CFA_V1_FORWARDER_ADDRESS},
+            verify::verify_stream,
+        },
+        types::{MiddlewareConfig, PaymentHeader, PaymentPayload, Scheme},
+        utils::{
+            convert_signature, convert_tx_hash, get_current_time, parse_channel_payload,
+            parse_stream_payload,
+        },
+    },
+};
+
+#[derive(Clone)]
+pub struct PaymentMiddlewareLayer {
+    pub state: MiddlewareState,
+    pub config: MiddlewareConfig,
+}
+
+impl PaymentMiddlewareLayer {
+    pub fn new(state: MiddlewareState, config: MiddlewareConfig) -> Self {
+        Self { state, config }
+    }
+}
+
+impl<S> Layer<S> for PaymentMiddlewareLayer {
+    type Service = PaymentMiddleware<S>;
+
+    fn layer(&self, service: S) -> Self::Service {
+        PaymentMiddleware {
+            inner: service,
+            state: self.state.clone(),
+            config: self.config.clone(),
+        }
+    }
+}
+
+#[derive(Clone)]
+pub struct PaymentMiddleware<S> {
+    inner: S,
+    state: MiddlewareState,
+    config: MiddlewareConfig,
+}
+
+impl<S> Service<Request<Body>> for PaymentMiddleware<S>
+where
+    S: Service<Request<Body>, Response = Response> + Clone + Send + 'static,
+    S::Future: Send + 'static,
+{
+    type Response = S::Response;
+    type Error = S::Error;
+    type Future = Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send>>;
+
+    fn poll_ready(
+        &mut self,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Result<(), Self::Error>> {
+        self.inner.poll_ready(cx)
+    }
+
+    fn call(&mut self, request: Request<Body>) -> Self::Future {
+        let mut state = self.state.clone();
+        let config = self.config.clone();
+        let mut inner = self.inner.clone();
+
+        Box::pin(async move {
+            let resource = request.uri().path();
+
+            // Helper function to create x402 responses
+            let create_x402_response =
+                |error: AuthError| error.into_x402_response(&config, resource);
+
+            // 1. Check for X-Payment headers -> PaymentRequiredHeader
+            let headers = request.headers();
+
+            let payment_header = match headers.get("X-Payment") {
+                Some(h) => h,
+                None => {
+                    // No payment header, return 402 with payment requirements
+                    return Ok(create_x402_response(AuthError::MissingHeaders));
+                }
+            };
+
+            let payment_json = match payment_header
+                .to_str()
+                .map_err(|_| AuthError::InvalidHeaders)
+            {
+                Ok(h) => h,
+                Err(e) => return Ok(create_x402_response(e)),
+            };
+
+            let payment: PaymentHeader =
+                match serde_json::from_str(payment_json).map_err(|_| AuthError::InvalidHeaders) {
+                    Ok(p) => p,
+                    Err(e) => return Ok(create_x402_response(e)),
+                };
+
+            if !payment.validate_payload_for_scheme() {
+                return Ok(create_x402_response(AuthError::InvalidHeaders));
+            }
+
+            // 2. Route to the correct child middleware logic based on scheme
+            let verification_result = match payment.get_scheme_enum() {
+                Some(Scheme::OneTimePayments) => {
+                    if let PaymentPayload::OneTime(payload) = payment.payload {
+                        // 3. Verify if the user accepts this scheme even in the config
+
+                        let scheme_config = match config.get_scheme_config(Scheme::OneTimePayments)
+                        {
+                            Some(c) => c,
+                            None => return Ok(create_x402_response(AuthError::SchemeNotAccepted)),
+                        };
+
+                        let amount = match U256::from_str_radix(
+                            &scheme_config.amount,
+                            scheme_config.decimals.unwrap_or(18) as u64,
+                        ) {
+                            Ok(a) => a,
+                            Err(_) => return Ok(create_x402_response(AuthError::InternalError)),
+                        };
+
+                        let onetime_config = OneTimePaymentConfig {
+                            rpc_url: scheme_config.network_rpc_url.clone(),
+                            token_address: scheme_config.token_address,
+                            recipient: scheme_config.recipient,
+                            amount: amount,
+                            period_ttl_sec: None,
+                        };
+
+                        let signature = match convert_signature(&payload.signature).await {
+                            Ok(s) => s,
+                            Err(e) => return Ok(create_x402_response(e)),
+                        };
+
+                        let tx_hash = match convert_tx_hash(&payload.tx_hash).await {
+                            Ok(h) => h,
+                            Err(e) => return Ok(create_x402_response(e)),
+                        };
+
+                        let payment: SignedPaymentTx = SignedPaymentTx {
+                            signature: signature,
+                            tx_hash: tx_hash,
+                        };
+
+                        if state.one_time_payment_state.is_none() {
+                            println!("Initialising one-time payment state");
+                            state = state.with_one_time_payment_state();
+                        }
+
+                        let one_time_payment_state = state.one_time_payment_state.unwrap();
+                        let current_time = get_current_time();
+
+                        if let Some(_) = one_time_payment_state.get(tx_hash).await {
+                            println!("Found existing payment in state");
+
+                            // Check if the payment is still valid for redemption
+                            if one_time_payment_state
+                                .is_valid_for_redemption_with_period(
+                                    tx_hash,
+                                    current_time,
+                                    None,
+                                    None,
+                                )
+                                .await
+                            {
+                                println!("Payment is valid for redemption");
+
+                                one_time_payment_state.increment_redemptions(tx_hash).await;
+                                println!("=== end middleware check ===");
+                            } else {
+                                println!("Payment is no longer valid for redemption");
+                                return Ok(create_x402_response(AuthError::InvalidTransaction(
+                                    "Payment session expired or max redemptions reached"
+                                        .to_string(),
+                                )));
+                            }
+                        } else {
+                            println!("New payment - verifying transaction");
+
+                            // First time seeing this payment, verify the transaction
+                            let (new_payment, verify) =
+                                match verify_tx(payment, onetime_config).await {
+                                    Ok(v) => v,
+                                    Err(e) => return Ok(create_x402_response(e)),
+                                };
+
+                            if !verify {
+                                println!("Transaction verification failed");
+                                return Ok(create_x402_response(AuthError::InvalidTransaction(
+                                    "Authentication failed".to_string(),
+                                )));
+                            }
+
+                            println!("Transaction verified successfully");
+
+                            one_time_payment_state.set(tx_hash, new_payment).await;
+                            println!("Added new payment to state");
+
+                            one_time_payment_state.increment_redemptions(tx_hash).await;
+                            println!("=== end middleware check ===");
+                        }
+                        Ok(())
+                    } else {
+                        Err(AuthError::InvalidHeaders)
+                    }
+                }
+                Some(Scheme::SuperfluidStreams) => {
+                    if let PaymentPayload::Stream(payload) = payment.payload {
+                        let scheme_config = match config
+                            .get_scheme_config(Scheme::SuperfluidStreams)
+                        {
+                            Some(c) => c,
+                            None => return Ok(create_x402_response(AuthError::SchemeNotAccepted)),
+                        };
+
+                        let signed_stream = match parse_stream_payload(&payload).await {
+                            Ok(s) => s,
+                            Err(e) => return Ok(create_x402_response(e)),
+                        };
+
+                        let flow_rate = {
+                            let monthly_amount = match scheme_config.amount.parse::<f64>() {
+                                Ok(amount) => amount,
+                                Err(_) => {
+                                    return Ok(create_x402_response(AuthError::InternalError))
+                                }
+                            };
+
+                            let decimals = scheme_config.decimals.unwrap_or(18);
+                            let amount_with_decimals =
+                                monthly_amount * (10_f64.powi(decimals as i32));
+
+                            let flow_rate_per_second =
+                                amount_with_decimals / (30.0 * 24.0 * 60.0 * 60.0);
+
+                            let flow_rate_i128 = flow_rate_per_second as i128;
+                            I96::try_from(flow_rate_i128).unwrap_or(I96::ZERO)
+                        };
+
+                        let streams_config = StreamsConfig {
+                            rpc_url: scheme_config.network_rpc_url.clone(),
+                            cfa_forwarder: Address::from_str(CFA_V1_FORWARDER_ADDRESS).unwrap(),
+                            token_address: scheme_config.token_address,
+                            recipient: scheme_config.recipient,
+                            amount: flow_rate,
+                            cache_time: 900,
+                        };
+
+                        if state.stream_state.is_none() {
+                            println!("Initialising stream state");
+                            state = state.with_stream_state();
+                        }
+
+                        let stream_state = state.stream_state.unwrap();
+                        let current_time = get_current_time();
+
+                        if let Some(stream) = stream_state.get(signed_stream.sender).await {
+                            if stream.last_verified > 0
+                                && current_time - stream.last_verified < streams_config.cache_time
+                            {
+                                println!("Stream already verified, in Cache!");
+                            } else {
+                                let verify = match verify_stream(
+                                    signed_stream.clone(),
+                                    streams_config.clone(),
+                                )
+                                .await
+                                {
+                                    Ok(v) => v,
+                                    Err(e) => return Ok(create_x402_response(e)),
+                                };
+
+                                if !verify {
+                                    return Ok(create_x402_response(
+                                        AuthError::InvalidTransaction(
+                                            "Stream verification failed".to_string(),
+                                        ),
+                                    ));
+                                }
+
+                                let updated_stream =
+                                    crate::middleware::stream_payment::types::Stream {
+                                        sender: signed_stream.sender,
+                                        recipient: streams_config.recipient,
+                                        token_address: streams_config.token_address,
+                                        flow_rate: streams_config.amount,
+                                        last_verified: current_time,
+                                    };
+
+                                stream_state.set(signed_stream.sender, updated_stream).await;
+                                println!("Stream verified and updated");
+                            }
+                        } else {
+                            let verify =
+                                match verify_stream(signed_stream.clone(), streams_config.clone())
+                                    .await
+                                {
+                                    Ok(v) => v,
+                                    Err(e) => return Ok(create_x402_response(e)),
+                                };
+
+                            if !verify {
+                                return Ok(create_x402_response(AuthError::InvalidTransaction(
+                                    "Stream verification failed".to_string(),
+                                )));
+                            }
+
+                            let new_stream = crate::middleware::stream_payment::types::Stream {
+                                sender: signed_stream.sender,
+                                recipient: streams_config.recipient,
+                                token_address: streams_config.token_address,
+                                flow_rate: streams_config.amount,
+                                last_verified: current_time,
+                            };
+
+                            stream_state.set(signed_stream.sender, new_stream).await;
+                            println!("New stream verified and added");
+                        }
+
+                        Ok(())
+                    } else {
+                        Err(AuthError::InvalidHeaders)
+                    }
+                }
+                Some(Scheme::PaymentChannels) => {
+                    if let PaymentPayload::Channel(payload) = payment.payload {
+                        let scheme_config = match config.get_scheme_config(Scheme::PaymentChannels)
+                        {
+                            Some(c) => c,
+                            None => return Ok(create_x402_response(AuthError::SchemeNotAccepted)),
+                        };
+
+                        let amount = match U256::from_str_radix(
+                            &scheme_config.amount,
+                            scheme_config.decimals.unwrap_or(18) as u64,
+                        ) {
+                            Ok(a) => a,
+                            Err(_) => return Ok(create_x402_response(AuthError::InternalError)),
+                        };
+
+                        let (signature, message, payment_channel) =
+                            match parse_channel_payload(&payload).await {
+                                Ok(data) => data,
+                                Err(e) => return Ok(create_x402_response(e)),
+                            };
+
+                        let channel_config = PaymentChannelConfig {
+                            rpc_url: scheme_config.network_rpc_url.clone(),
+                            token_address: scheme_config.token_address,
+                            recipient: scheme_config.recipient,
+                            amount,
+                        };
+
+                        if state.channel_state.is_none() {
+                            println!("Initialising channel state");
+                            state = state.with_channel_state();
+                        }
+
+                        let channel_state = state.channel_state.unwrap();
+
+                        let signed_request =
+                            crate::middleware::payment_channel::types::SignedRequest {
+                                message,
+                                signature,
+                                payment_channel: payment_channel.clone(),
+                                payment_amount: amount,
+                                body_bytes: Vec::new(), // TODO: Extract from request body if needed
+                                timestamp: payload.timestamp,
+                            };
+
+                        let (updated_channel, verify) = match verify_and_update_channel(
+                            &channel_state,
+                            &channel_config,
+                            signed_request,
+                        )
+                        .await
+                        {
+                            Ok((channel, verified)) => (channel, verified),
+                            Err(e) => return Ok(create_x402_response(e)),
+                        };
+
+                        if verify {
+                            channel_state
+                                .channels
+                                .write()
+                                .await
+                                .insert(updated_channel.channel_id, updated_channel);
+                            println!("Channel verified and updated");
+                        } else {
+                            return Ok(create_x402_response(AuthError::InvalidTransaction(
+                                "Channel verification failed".to_string(),
+                            )));
+                        }
+
+                        Ok(())
+                    } else {
+                        Err(AuthError::InvalidHeaders)
+                    }
+                }
+                None => Err(AuthError::InvalidHeaders),
+            };
+
+            // Handle verification result
+            match verification_result {
+                Ok(_) => {
+                    // Payment verified, proceed with the request
+                    inner.call(request).await
+                }
+                Err(auth_error) => {
+                    // Payment verification failed, return 402 Payment Required with proper x402 format
+                    Ok(create_x402_response(auth_error))
+                }
+            }
+        })
+    }
+}
