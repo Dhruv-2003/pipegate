@@ -1,4 +1,4 @@
-import { ClientInterceptor } from "./client.js";
+import { ClientInterceptor, withPaymentInterceptor } from "./client.js";
 import {
   type CreateChannelResponse,
   type CreateChannelParams,
@@ -15,6 +15,7 @@ import init from "./wasm/pipegate.js";
 
 export {
   ClientInterceptor,
+  withPaymentInterceptor,
   init as initWasm,
   PaymentChannelVerifier,
   StreamVerifier,

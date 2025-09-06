@@ -484,31 +484,24 @@ export function withPaymentInterceptor(
 
   const client = new ClientInterceptor(privateKey);
 
-  axiosClient.interceptors.request.use();
-
   axiosClient.interceptors.response.use(
     (response) => {
-      try {
-        const paymentChannelStr =
-          response.headers["X-Payment"] || response.headers["x-payment"];
-        if (!paymentChannelStr) {
-          console.error("No payment channel found in response headers");
-          return response;
-        }
-
-        const paymentChannel: PaymentChannelResponse =
-          JSON.parse(paymentChannelStr);
-        const channelId = paymentChannel.channel_id;
-
-        const nextNonce = Number(paymentChannel.nonce) + 1;
-
-        paymentChannel.nonce = nextNonce.toString();
-        client.updateChannel(channelId, paymentChannel);
-        client.updateNonce(channelId, Number(nextNonce));
+      const paymentChannelStr =
+        response.headers["X-Payment"] || response.headers["x-payment"];
+      if (!paymentChannelStr) {
         return response;
-      } catch (err) {
-        throw err;
       }
+
+      const paymentChannel: PaymentChannelResponse =
+        JSON.parse(paymentChannelStr);
+      const channelId = paymentChannel.channel_id;
+
+      const nextNonce = Number(paymentChannel.nonce) + 1;
+
+      paymentChannel.nonce = nextNonce.toString();
+      client.updateChannel(channelId, paymentChannel);
+      client.updateNonce(channelId, Number(nextNonce));
+
       return response;
     },
     async (error) => {
