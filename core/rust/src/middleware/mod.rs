@@ -19,7 +19,11 @@ use crate::{
     error::AuthError,
     middleware::{
         one_time_payment::{types::OneTimePaymentConfig, verify::verify_tx},
-        payment_channel::{types::PaymentChannelConfig, verify::verify_and_update_channel},
+        payment_channel::{
+            types::{PaymentChannel, PaymentChannelConfig},
+            utils::modify_headers_axum,
+            verify::verify_and_update_channel,
+        },
         stream_payment::{
             types::{StreamsConfig, CFA_V1_FORWARDER_ADDRESS},
             verify::verify_stream,
@@ -120,7 +124,9 @@ where
             }
 
             // 2. Route to the correct child middleware logic based on scheme
-            let verification_result = match payment.get_scheme_enum() {
+            let verification_result: Result<Option<PaymentChannel>, AuthError> = match payment
+                .get_scheme_enum()
+            {
                 Some(Scheme::OneTimePayments) => {
                     if let PaymentPayload::OneTime(payload) = payment.payload {
                         // 3. Verify if the user accepts this scheme even in the config
@@ -215,7 +221,7 @@ where
                                 .await;
                             println!("=== end middleware check ===");
                         }
-                        Ok(())
+                        Ok(None)
                     } else {
                         Err(AuthError::InvalidHeaders)
                     }
@@ -333,7 +339,7 @@ where
                             println!("New stream verified and added");
                         }
 
-                        Ok(())
+                        Ok(None)
                     } else {
                         Err(AuthError::InvalidHeaders)
                     }
@@ -400,15 +406,14 @@ where
                                 .channels
                                 .write()
                                 .await
-                                .insert(updated_channel.channel_id, updated_channel);
+                                .insert(updated_channel.channel_id, updated_channel.clone());
                             println!("Channel verified and updated");
                         } else {
                             return Ok(create_x402_response(AuthError::InvalidTransaction(
                                 "Channel verification failed".to_string(),
                             )));
                         }
-
-                        Ok(())
+                        Ok(Some(updated_channel.clone()))
                     } else {
                         Err(AuthError::InvalidHeaders)
                     }
@@ -418,9 +423,15 @@ where
 
             // Handle verification result
             match verification_result {
-                Ok(_) => {
+                Ok(payment_channel) => {
                     // Payment verified, proceed with the request
-                    inner.call(request).await
+                    let response = inner.call(request).await?;
+                    if let Some(updated_channel) = payment_channel {
+                        let response = modify_headers_axum(response, &updated_channel);
+                        return Ok(response);
+                    }
+
+                    Ok(response)
                 }
                 Err(auth_error) => {
                     // Payment verification failed, return 402 Payment Required with proper x402 format
