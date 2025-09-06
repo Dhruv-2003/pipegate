@@ -112,8 +112,13 @@ impl AuthError {
                         "sessionTTLSeconds": SESSION_TTL_SEC,
                         "maxRedemptions": MAX_REDEMPTIONS
                     })),
-                    crate::middleware::types::Scheme::SuperfluidStreams => None,
+                    crate::middleware::types::Scheme::SuperfluidStreams => {
+                        Some(serde_json::json!({
+                              "flowRate": scheme_config.amount.clone().push_str(" /month")
+                        }))
+                    }
                     crate::middleware::types::Scheme::PaymentChannels => {
+                        // TODO: Add real payment channel state info here
                         Some(serde_json::json!("paymentChannelState"))
                     }
                 };

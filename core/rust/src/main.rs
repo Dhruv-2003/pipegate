@@ -29,7 +29,7 @@ pub async fn main() {
     println!("Starting server...");
 
     let rpc_url: alloy::transports::http::reqwest::Url =
-        "https://base-sepolia-rpc.publicnode.com".parse().unwrap();
+        "https://sepolia.base.org".parse().unwrap();
 
     // **** PAYMENT CHANNEL CONFIG ****
     // Amount is not supposed to be in the decimal format, so parsed with the decimals of that token
@@ -73,9 +73,18 @@ pub async fn main() {
         rpc_url.to_string(),
         Address::from_str("0x036CbD53842c5426634e7929541eC2318f3dCF7e").unwrap(),
         Address::from_str("0x62c43323447899acb61c18181e34168903e033bf").unwrap(),
-        "1".to_string(),
-    );
-    let middleware_config = MiddlewareConfig::new(vec![onetime_payment.await]);
+        "0.01".to_string(),
+    )
+    .await;
+    let stream_payment = SchemeConfig::new(
+        Scheme::SuperfluidStreams,
+        rpc_url.to_string(),
+        Address::from_str("0x1650581f573ead727b92073b5ef8b4f5b94d1648").unwrap(),
+        Address::from_str("0x62c43323447899acb61c18181e34168903e033bf").unwrap(),
+        "2".to_string(), // 2 USDC per month
+    )
+    .await;
+    let middleware_config = MiddlewareConfig::new(vec![stream_payment, onetime_payment]);
 
     let app = Router::new()
         .route(

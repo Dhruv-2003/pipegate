@@ -60,7 +60,7 @@ pub async fn verify_tx(
     // Match the contract interacted with to be the token contract
     match tx_receipt.to {
         Some(to) => {
-            if to != config.recipient {
+            if to != config.token_address {
                 return Err(AuthError::InvalidTransaction(
                     "Invalid token contract address".to_string(),
                 ));

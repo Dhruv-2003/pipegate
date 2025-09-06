@@ -10,7 +10,7 @@ pub(crate) mod types;
 
 mod utils;
 
-use alloy::primitives::{aliases::I96, Address, U256};
+use alloy::primitives::{aliases::I96, utils::parse_units, Address, U256};
 use axum::{body::Body, http::Request, response::Response};
 use std::{future::Future, pin::Pin, str::FromStr};
 use tower::{Layer, Service};
@@ -137,12 +137,14 @@ where
                             None => return Ok(create_x402_response(AuthError::SchemeNotAccepted)),
                         };
 
-                        let amount = match U256::from_str_radix(
+                        let amount = match parse_units(
                             &scheme_config.amount,
-                            scheme_config.decimals.unwrap_or(18) as u64,
+                            scheme_config.decimals.unwrap_or(18),
                         ) {
-                            Ok(a) => a,
-                            Err(_) => return Ok(create_x402_response(AuthError::InternalError)),
+                            Ok(a) => a.get_absolute(),
+                            Err(e) => {
+                                return Ok(create_x402_response(AuthError::InternalError));
+                            }
                         };
 
                         let onetime_config = OneTimePaymentConfig {
@@ -253,11 +255,13 @@ where
                                 monthly_amount * (10_f64.powi(decimals as i32));
 
                             let flow_rate_per_second =
-                                amount_with_decimals / (30.0 * 24.0 * 60.0 * 60.0);
+                                amount_with_decimals / ((365.0 / 12.0) * 24.0 * 60.0 * 60.0);
 
                             let flow_rate_i128 = flow_rate_per_second as i128;
                             I96::try_from(flow_rate_i128).unwrap_or(I96::ZERO)
                         };
+
+                        println!("Calculated flow rate: {}", flow_rate);
 
                         let streams_config = StreamsConfig {
                             rpc_url: scheme_config.network_rpc_url.clone(),

@@ -110,7 +110,7 @@ impl SchemeConfig {
             let (super_token_address, decimals) =
                 get_super_token_from_token(&chain_id, &token_address)
                     .await
-                    .unwrap();
+                    .unwrap_or((token_address, 18));
             return Self {
                 scheme,
                 network_rpc_url,
