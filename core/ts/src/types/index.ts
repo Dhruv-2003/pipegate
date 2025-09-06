@@ -37,3 +37,21 @@ export interface CreateChannelResponse {
   price: bigint;
   timestamp: bigint;
 }
+
+export enum PaymentScheme {
+  OneTime = "one-time",
+  Stream = "stream",
+  PaymentChannel = "channel",
+}
+
+export interface PaymentRequirements {
+  scheme: PaymentScheme;
+  network: string;
+  amount: string;
+  payTo: `0x${string}`;
+  asset: `0x${string}`;
+  resource: string;
+  description?: string;
+  maxTimeoutSeconds?: number;
+  extra?: Record<string, any>;
+}

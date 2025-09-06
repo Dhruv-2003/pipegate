@@ -1,9 +1,11 @@
-import type {
-  CreateChannelParams,
-  CreateChannelResponse,
-  PaymentChannelResponse,
-  RequestConfig,
-  SignedRequest,
+import {
+  PaymentScheme,
+  type CreateChannelParams,
+  type CreateChannelResponse,
+  type PaymentChannelResponse,
+  type PaymentRequirements,
+  type RequestConfig,
+  type SignedRequest,
 } from "./types";
 import { channelFactoryABI } from "./abi/channelFactory.js";
 import "dotenv/config";
@@ -23,10 +25,11 @@ import {
   type Account,
 } from "viem";
 import { formatAxiosError } from "./utils/index.js";
-import axios, { type InternalAxiosRequestConfig } from "axios";
+import axios, { AxiosInstance, type InternalAxiosRequestConfig } from "axios";
 import { privateKeyToAccount } from "viem/accounts";
 import { baseSepolia } from "viem/chains";
 import { ChannelFactoryAddress } from "./constants/address.js";
+import { time, timeStamp } from "console";
 
 export class ClientInterceptor {
   private nonceMap: Map<string, number> = new Map();
@@ -34,8 +37,8 @@ export class ClientInterceptor {
 
   private account!: Account;
 
-  constructor() {
-    const privateKey = process.env.WALLET_PRIVATE_KEY;
+  constructor(pkey?: `0x${string}`) {
+    let privateKey = process.env.WALLET_PRIVATE_KEY || pkey;
 
     if (!privateKey) {
       throw new Error("WALLET_PRIVATE_KEY environment variable is required");
@@ -162,6 +165,10 @@ export class ClientInterceptor {
     });
   }
 
+  updateChannel(channelId: string, channelState: PaymentChannelResponse) {
+    this.channelStates.set(channelId, channelState);
+  }
+
   /**
    * gets the state of a payment channel
    * @param channelId
@@ -175,6 +182,10 @@ export class ClientInterceptor {
     const currentNonce = this.nonceMap.get(channelId) || 0;
     this.nonceMap.set(channelId, currentNonce + 1);
     return currentNonce.toString();
+  }
+
+  updateNonce(channelId: string, nonce: number) {
+    this.nonceMap.set(channelId, nonce);
   }
 
   /**
@@ -446,4 +457,182 @@ export class ClientInterceptor {
 
     return event.args.channelId.toString();
   }
+}
+
+/**
+ *
+ * Enables the payment of APIs using the x402 payment protocol with different supported schemes.
+ *
+ * @note This function logic is largely inspired from "x402-axios" package written by the coinbase team
+ * @param axiosClient - The Axios instance to add the interceptor to
+ * @param privateKey - A private key that can sign and create payment headers
+ * @param config - Configuration for the payment interceptor
+ * @returns
+ */
+export function withPaymentInterceptor(
+  axiosClient: AxiosInstance,
+  privateKey: `0x${string}`,
+  config: {
+    channel?: CreateChannelResponse;
+    oneTimePaymentTxHash?: `0x${string}`;
+    streamSender?: `0x${string}`;
+  }
+) {
+  if (!privateKey) {
+    throw new Error("Private key is required for payment interceptor");
+  }
+
+  const client = new ClientInterceptor(privateKey);
+
+  axiosClient.interceptors.request.use();
+
+  axiosClient.interceptors.response.use(
+    (response) => {
+      try {
+        const paymentChannelStr =
+          response.headers["X-Payment"] || response.headers["x-payment"];
+        if (!paymentChannelStr) {
+          console.error("No payment channel found in response headers");
+          return response;
+        }
+
+        const paymentChannel: PaymentChannelResponse =
+          JSON.parse(paymentChannelStr);
+        const channelId = paymentChannel.channel_id;
+
+        const nextNonce = Number(paymentChannel.nonce) + 1;
+
+        paymentChannel.nonce = nextNonce.toString();
+        client.updateChannel(channelId, paymentChannel);
+        client.updateNonce(channelId, Number(nextNonce));
+        return response;
+      } catch (err) {
+        throw err;
+      }
+      return response;
+    },
+    async (error) => {
+      if (!error.response || error.response.status !== 402) {
+        return Promise.reject(error);
+      }
+      try {
+        //1. Check if we have already retried this request
+        const originalConfig = error.config;
+
+        if (!originalConfig || !originalConfig.headers) {
+          return Promise.reject(
+            new Error("Missing axios request configuration")
+          );
+        }
+
+        if ((originalConfig as { __is402Retry?: boolean }).__is402Retry) {
+          return Promise.reject(error);
+        }
+
+        //2. Parse the respone to extract payment requirements
+        const { x402Version, accepts } = error.response.data as {
+          x402Version: number;
+          accepts: PaymentRequirements[];
+        };
+
+        //3. Choose the payment scheme (for simplicity, we choose the first one here)
+        const paymentRequirement = accepts[0];
+        if (!paymentRequirement) {
+          return Promise.reject(
+            new Error("No acceptable payment requirements found")
+          );
+        }
+
+        //4. Create payment header
+        let paymentHeader = {
+          x402Version: x402Version,
+          network: paymentRequirement.network,
+          scheme: paymentRequirement.scheme,
+          payload: {},
+        };
+
+        if (paymentRequirement.scheme === PaymentScheme.OneTime) {
+          if (config.oneTimePaymentTxHash === undefined) {
+            return Promise.reject(
+              new Error("One time payment transaction hash is required")
+            );
+          }
+
+          const signedRequest = await client.signOneTimePaymentRequest(
+            config.oneTimePaymentTxHash
+          );
+
+          paymentHeader.payload = {
+            signature: signedRequest.signature,
+            tx_hash: config.oneTimePaymentTxHash,
+          };
+        } else if (paymentRequirement.scheme === PaymentScheme.Stream) {
+          if (config.streamSender === undefined) {
+            return Promise.reject(
+              new Error("Stream sender address is required")
+            );
+          }
+
+          const signedRequest = await client.signStreamRequest(
+            config.streamSender
+          );
+          paymentHeader.payload = {
+            signature: signedRequest.signature,
+            sender: config.streamSender,
+          };
+        } else if (paymentRequirement.scheme === PaymentScheme.PaymentChannel) {
+          // TODO: Complete payment channel flow properly
+          if (config.channel === undefined) {
+            return Promise.reject(
+              new Error("Payment channel ID is required for channel payments")
+            );
+          }
+
+          client.addNewChannel(
+            config.channel.channelId.toString(),
+            config.channel
+          );
+
+          // Have to somehow fetch the state or bring in some persistency algo, maybe we accept the payment channel state itself
+          const channelState = client.getChannelState(
+            config.channel.channelId.toString()
+          );
+          if (!channelState) {
+            return Promise.reject(
+              new Error(
+                `No payment channel found for ID: ${config.channel.channelId.toString()}`
+              )
+            );
+          }
+
+          const signedRequest = await client.signPaymentChannelRequest(
+            channelState,
+            originalConfig.data
+          );
+
+          paymentHeader.payload = {
+            signature: signedRequest.signature,
+            message: signedRequest.message,
+            paymentChannel: channelState,
+            timestamp: signedRequest.timestamp,
+          };
+        }
+
+        //4. Retry the original request with payment header
+        (originalConfig as { __is402Retry?: boolean }).__is402Retry = true;
+
+        originalConfig.headers["X-Payment"] = JSON.stringify(paymentHeader);
+        originalConfig.headers["Access-Control-Expose-Headers"] =
+          "X-PAYMENT-RESPONSE";
+
+        //5. Expose the X-PAYMENT-RESPONSE header in the final response
+        const secondResponse = await axiosClient.request(originalConfig);
+        return secondResponse;
+      } catch (err) {
+        return Promise.reject(err);
+      }
+    }
+  );
+
+  return axiosClient;
 }
