@@ -11,9 +11,12 @@ use js_sys::Date;
 
 use crate::{
     error::AuthError,
-    middleware::one_time_payment::{
-        types::{OneTimePayment, OneTimePaymentConfig, SignedPaymentTx, ABS_WINDOW_SEC},
-        utils::create_tx_message,
+    middleware::{
+        one_time_payment::{
+            types::{OneTimePayment, OneTimePaymentConfig, SignedPaymentTx, ABS_WINDOW_SEC},
+            utils::create_tx_message,
+        },
+        utils::get_current_time,
     },
 };
 
@@ -91,14 +94,7 @@ pub async fn verify_tx(
     // Check if the log is a transfer log & verify the topics and data
     if transfer_log.address() == config.token_address {
         // Verify the log timestamp is within the allowed period
-        let current_time = if cfg!(target_arch = "wasm32") {
-            (Date::now() / 1000.0) as u64
-        } else {
-            std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_secs()
-        };
+        let current_time = get_current_time();
 
         match transfer_log.block_timestamp {
             Some(timestamp) => {

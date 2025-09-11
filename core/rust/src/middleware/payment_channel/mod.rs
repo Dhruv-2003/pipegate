@@ -31,12 +31,14 @@ use crate::error::AuthError;
 //* PAYMENT CHANNEL MIDDLEWARE LOGIC */
 #[derive(Clone)]
 #[cfg(not(target_arch = "wasm32"))]
+#[deprecated(since = "0.6.0", note = "Use middleware::PaymentsLayer (unified PipegateMiddlewareLayer alias)")]
 pub struct PaymentChannelMiddlewareLayer {
     pub state: ChannelState,
     pub config: PaymentChannelConfig,
 }
 
 #[cfg(not(target_arch = "wasm32"))]
+#[allow(deprecated)]
 impl PaymentChannelMiddlewareLayer {
     pub fn new(state: ChannelState, config: PaymentChannelConfig) -> Self {
         Self { state, config }
@@ -44,6 +46,7 @@ impl PaymentChannelMiddlewareLayer {
 }
 
 #[cfg(not(target_arch = "wasm32"))]
+#[allow(deprecated)]
 impl<S> Layer<S> for PaymentChannelMiddlewareLayer {
     type Service = PaymentChannelMiddleware<S>;
 
@@ -58,13 +61,14 @@ impl<S> Layer<S> for PaymentChannelMiddlewareLayer {
 
 #[derive(Clone)]
 #[cfg(not(target_arch = "wasm32"))]
+#[deprecated(since = "0.6.0", note = "Use middleware::Payments<S> (unified PipegateMiddleware alias)")]
 pub struct PaymentChannelMiddleware<S> {
     inner: S,
     state: ChannelState,
     config: PaymentChannelConfig,
 }
-
 #[cfg(not(target_arch = "wasm32"))]
+#[allow(deprecated)]
 impl<S> Service<Request<Body>> for PaymentChannelMiddleware<S>
 where
     S: Service<Request<Body>, Response = Response> + Clone + Send + 'static,

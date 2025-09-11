@@ -1,5 +1,36 @@
 # Changelog
 
+## [V0.6.0] - 2025-??-?? (UNRELEASED)
+
+### Added
+
+- Unified multi-scheme payments middleware: `PaymentsLayer` (`PipegateMiddlewareLayer` alias) and `Payments<S>` (`PipegateMiddleware<S>` alias) handling One-Time, Superfluid Streams, and Payment Channels in a single Tower layer.
+- Public aliases `PaymentsState` and `PaymentsConfig` for ergonomic naming.
+
+### Deprecated
+
+- Per-scheme middleware layers/services in favor of unified layer:
+  - `OnetimePaymentMiddlewareLayer` / `OnetimePaymentMiddleware<S>` (alias `OneTimePaymentMiddlewareLayer`) → use `PaymentsLayer` / `Payments<S>`
+  - `StreamMiddlewareLayer` / `StreamMiddleware<S>` → use `PaymentsLayer` / `Payments<S>`
+  - `PaymentChannelMiddlewareLayer` / `PaymentChannelMiddleware<S>` → use `PaymentsLayer` / `Payments<S>`
+- These deprecated items will be removed in a future major release after a grace period.
+
+### Changed
+
+- Internal verification logic consolidated; header parsing now routes by `Scheme` enum and produces unified x402 responses.
+
+### Migration Guide
+
+1. Replace any per-scheme middleware layers with a single `PaymentsLayer::new(state, config)` where `config` contains scheme configurations.
+2. Remove multiple middleware registrations—only one unified layer is required.
+3. Keep using existing state initialization helpers; the unified layer lazily initializes per-scheme state as needed.
+4. Update import paths to prefer `middleware::PaymentsLayer` and `middleware::Payments`.
+
+### Notes
+
+- Deprecated symbols continue to function but emit `#[deprecated]` warnings.
+- No breaking changes introduced in 0.6.0; removal scheduled for the next semver-major.
+
 ## [V0.5.0] - 2025-02-22
 
 ### Added

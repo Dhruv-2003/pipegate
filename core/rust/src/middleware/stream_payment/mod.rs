@@ -26,15 +26,20 @@ use verify::verify_stream;
 
 use crate::error::AuthError;
 
-// * SUPERFLUID STREAMS MIDDLEWARE LOGIC */
+// * SUPERFLUID STREAMS MIDDLEWARE LOGIC (Deprecated standalone in 0.6.0 in favor of unified PaymentsLayer) */
 #[derive(Clone)]
 #[cfg(not(target_arch = "wasm32"))]
+#[deprecated(
+    since = "0.6.0",
+    note = "Use middleware::PaymentsLayer (unified PipegateMiddlewareLayer alias)"
+)]
 pub struct StreamMiddlewareLayer {
     pub config: StreamsConfig,
     pub state: StreamState,
 }
 
 #[cfg(not(target_arch = "wasm32"))]
+#[allow(deprecated)]
 impl StreamMiddlewareLayer {
     pub fn new(config: StreamsConfig, state: StreamState) -> Self {
         Self { config, state }
@@ -42,6 +47,7 @@ impl StreamMiddlewareLayer {
 }
 
 #[cfg(not(target_arch = "wasm32"))]
+#[allow(deprecated)]
 impl<S> Layer<S> for StreamMiddlewareLayer {
     type Service = StreamMiddleware<S>;
 
@@ -56,6 +62,10 @@ impl<S> Layer<S> for StreamMiddlewareLayer {
 
 #[derive(Clone)]
 #[cfg(not(target_arch = "wasm32"))]
+#[deprecated(
+    since = "0.6.0",
+    note = "Use middleware::Payments<S> (unified PipegateMiddleware alias)"
+)]
 pub struct StreamMiddleware<S> {
     inner: S,
     config: StreamsConfig,
@@ -63,6 +73,7 @@ pub struct StreamMiddleware<S> {
 }
 
 #[cfg(not(target_arch = "wasm32"))]
+#[allow(deprecated)]
 impl<S> Service<Request<Body>> for StreamMiddleware<S>
 where
     S: Service<Request<Body>, Response = Response> + Clone + Send + 'static,

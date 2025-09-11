@@ -177,6 +177,7 @@ pub struct PaymentHeader {
     pub payload: PaymentPayload,
 }
 
+#[allow(dead_code)]
 impl PaymentHeader {
     pub fn from_json_str(json_str: &str) -> Result<Self, serde_json::Error> {
         serde_json::from_str(json_str)

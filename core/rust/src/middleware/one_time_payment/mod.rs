@@ -16,6 +16,8 @@ use axum::{
 
 use tower::{Layer, Service};
 
+use crate::middleware::utils::get_current_time;
+
 use state::OneTimePaymentState;
 use types::OneTimePaymentConfig;
 use utils::parse_tx_headers;
@@ -23,15 +25,20 @@ use verify::verify_tx;
 
 use crate::error::AuthError;
 
-//* PAYMENT CHANNEL MIDDLEWARE LOGIC */
+//* ONE TIME PAYMENT MIDDLEWARE (Deprecated standalone in 0.6.0 in favor of unified PaymentsLayer) */
 #[derive(Clone)]
 #[cfg(not(target_arch = "wasm32"))]
+#[deprecated(
+    since = "0.6.0",
+    note = "Use middleware::PaymentsLayer (unified PipegateMiddlewareLayer alias)"
+)]
 pub struct OnetimePaymentMiddlewareLayer {
     pub config: OneTimePaymentConfig,
     pub state: OneTimePaymentState,
 }
 
 #[cfg(not(target_arch = "wasm32"))]
+#[allow(deprecated)]
 impl OnetimePaymentMiddlewareLayer {
     pub fn new(config: OneTimePaymentConfig, state: OneTimePaymentState) -> Self {
         Self { config, state }
@@ -39,6 +46,7 @@ impl OnetimePaymentMiddlewareLayer {
 }
 
 #[cfg(not(target_arch = "wasm32"))]
+#[allow(deprecated)]
 impl<S> Layer<S> for OnetimePaymentMiddlewareLayer {
     type Service = OnetimePaymentMiddleware<S>;
 
@@ -53,6 +61,10 @@ impl<S> Layer<S> for OnetimePaymentMiddlewareLayer {
 
 #[derive(Clone)]
 #[cfg(not(target_arch = "wasm32"))]
+#[deprecated(
+    since = "0.6.0",
+    note = "Use middleware::Payments<S> (unified PipegateMiddleware alias)"
+)]
 pub struct OnetimePaymentMiddleware<S> {
     inner: S,
     config: OneTimePaymentConfig,
@@ -60,6 +72,7 @@ pub struct OnetimePaymentMiddleware<S> {
 }
 
 #[cfg(not(target_arch = "wasm32"))]
+#[allow(deprecated)]
 impl<S> Service<Request<Body>> for OnetimePaymentMiddleware<S>
 where
     S: Service<Request<Body>, Response = Response> + Clone + Send + 'static,
@@ -93,16 +106,7 @@ where
             };
 
             let tx_hash = signed_payment_tx.tx_hash;
-            let current_time = if cfg!(target_arch = "wasm32") {
-                use js_sys::Date;
-
-                (Date::now() / 1000.0) as u64
-            } else {
-                std::time::SystemTime::now()
-                    .duration_since(std::time::UNIX_EPOCH)
-                    .unwrap()
-                    .as_secs()
-            };
+            let current_time = get_current_time();
 
             // Check if payment exists in state
             if let Some(_) = state.get(tx_hash).await {
@@ -112,7 +116,15 @@ where
                 let custom_session_ttl = config.period_ttl_sec;
 
                 // Check if the payment is still valid for redemption
-                if state.is_valid_for_redemption_with_period(tx_hash, current_time, None, custom_session_ttl).await {
+                if state
+                    .is_valid_for_redemption_with_period(
+                        tx_hash,
+                        current_time,
+                        None,
+                        custom_session_ttl,
+                    )
+                    .await
+                {
                     println!("Payment is valid for redemption");
 
                     // Increment redemption count
@@ -180,10 +192,7 @@ pub async fn onetime_payment_auth_fn_middleware(
     };
 
     let tx_hash = signed_payment_tx.tx_hash;
-    let current_time = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
-        .as_secs();
+    let current_time = get_current_time();
 
     // Check if payment exists in state
     if let Some(existing_payment) = state.payment_state.get(tx_hash).await {

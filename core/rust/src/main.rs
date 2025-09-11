@@ -3,6 +3,7 @@ use std::{env, str::FromStr};
 use alloy::primitives::{Address, Bytes, U256};
 use axum::{routing::get, Router};
 
+#[allow(deprecated)]
 #[cfg(not(target_arch = "wasm32"))]
 #[tokio::main]
 pub async fn main() {
@@ -65,8 +66,7 @@ pub async fn main() {
     let stream_state_clone = stream_state.clone();
     let stream_payment_config_clone = stream_payment_config.clone();
 
-    // *** PAYMENTR MIDDLEWARE LAYER ***
-
+    // *** PAYMENT MIDDLEWARE LAYER ***
     let middleware_state = MiddlewareState::new();
     let onetime_payment = SchemeConfig::new(
         Scheme::OneTimePayments,

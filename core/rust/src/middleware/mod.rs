@@ -5,6 +5,12 @@ pub mod stream_payment;
 pub use state::MiddlewareState;
 pub use types::{MiddlewareConfig, Scheme, SchemeConfig};
 
+// Preferred public naming aliases for unified middleware (introduced in 0.6.0)
+#[doc = "Alias for the unified payments middleware state (preferred external name)"]
+pub type PaymentsState = MiddlewareState;
+#[doc = "Alias for the unified payments middleware config (preferred external name)"]
+pub type PaymentsConfig = MiddlewareConfig;
+
 pub(crate) mod state;
 pub(crate) mod types;
 
@@ -41,6 +47,10 @@ pub struct PipegateMiddlewareLayer {
     pub config: MiddlewareConfig,
 }
 
+/// Preferred alias: use `PaymentsLayer` in new code (added in 0.6.0)
+#[doc = "Unified payments middleware layer handling all supported schemes. Prefer this name over PipegateMiddlewareLayer in new code."]
+pub type PaymentsLayer = PipegateMiddlewareLayer;
+
 impl PipegateMiddlewareLayer {
     pub fn new(state: MiddlewareState, config: MiddlewareConfig) -> Self {
         Self { state, config }
@@ -65,6 +75,10 @@ pub struct PipegateMiddleware<S> {
     state: MiddlewareState,
     config: MiddlewareConfig,
 }
+
+/// Preferred alias: use `Payments` in new code (added in 0.6.0)
+#[doc = "Unified payments middleware service wrapper. Prefer this alias over PipegateMiddleware in new code."]
+pub type Payments<S> = PipegateMiddleware<S>;
 
 impl<S> Service<Request<Body>> for PipegateMiddleware<S>
 where
@@ -100,7 +114,6 @@ where
             let payment_header = match headers.get("X-Payment") {
                 Some(h) => h,
                 None => {
-                    // No payment header, return 402 with payment requirements
                     return Ok(create_x402_response(AuthError::MissingHeaders));
                 }
             };
@@ -142,7 +155,7 @@ where
                             scheme_config.decimals.unwrap_or(18),
                         ) {
                             Ok(a) => a.get_absolute(),
-                            Err(e) => {
+                            Err(_) => {
                                 return Ok(create_x402_response(AuthError::InternalError));
                             }
                         };
@@ -260,9 +273,7 @@ where
                             let flow_rate_i128 = flow_rate_per_second as i128;
                             I96::try_from(flow_rate_i128).unwrap_or(I96::ZERO)
                         };
-
-                        println!("Calculated flow rate: {}", flow_rate);
-
+                        
                         let streams_config = StreamsConfig {
                             rpc_url: scheme_config.network_rpc_url.clone(),
                             cfa_forwarder: Address::from_str(CFA_V1_FORWARDER_ADDRESS).unwrap(),
@@ -390,7 +401,7 @@ where
                                 signature,
                                 payment_channel: payment_channel.clone(),
                                 payment_amount: amount,
-                                body_bytes: Vec::new(), // TODO: Extract from request body if needed
+                                body_bytes: Vec::new(), // NOTE: We don't use body_bytes anymore 
                                 timestamp: payload.timestamp,
                             };
 
