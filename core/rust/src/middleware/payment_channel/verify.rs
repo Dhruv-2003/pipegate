@@ -1,6 +1,3 @@
-#[cfg(not(target_arch = "wasm32"))]
-use std::time::{SystemTime, UNIX_EPOCH};
-
 use alloy::{
     hex::{self},
     primitives::U256,
@@ -185,15 +182,7 @@ pub async fn verify_channel(
     let channels = state.channels.write().await;
 
     // Check if the channel is not expired with the current timestamp
-    #[cfg(not(target_arch = "wasm32"))]
-    let now = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap()
-        .as_secs();
-
-    #[cfg(target_arch = "wasm32")]
-    let now = (Date::now() as u64) / 1000;
-
+    let now = get_current_time();
     if request.payment_channel.expiration < U256::from(now) {
         return Err(AuthError::Expired);
     }

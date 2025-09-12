@@ -12,9 +12,11 @@ use crate::{
         one_time_payment::types::SignedPaymentTx,
         payment_channel::types::PaymentChannel,
         stream_payment::types::{SignedStream, SUPERFLUID_NETWORKS_LIST, SUPERFLUID_TOKEN_LIST},
-        types::{ChannelPayload, OneTimePayload, StreamPayload, CHAINLIST_API},
     },
 };
+
+#[cfg(not(target_arch = "wasm32"))]
+use crate::middleware::types::{ChannelPayload, OneTimePayload, StreamPayload, CHAINLIST_API};
 
 sol! {
    // The `rpc` attribute enables contract interaction via the provider.
@@ -62,6 +64,7 @@ pub async fn convert_tx_hash(tx_hash: &String) -> Result<FixedBytes<32>, AuthErr
     return tx_hash.map(|h| FixedBytes::<32>::from_slice(&h));
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 pub async fn parse_onetime_payload(payload: &OneTimePayload) -> Result<SignedPaymentTx, AuthError> {
     let signature = convert_signature(&payload.signature).await?;
     let tx_hash = convert_tx_hash(&payload.tx_hash).await?;
@@ -69,6 +72,7 @@ pub async fn parse_onetime_payload(payload: &OneTimePayload) -> Result<SignedPay
     Ok(SignedPaymentTx { signature, tx_hash })
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 pub async fn parse_stream_payload(payload: &StreamPayload) -> Result<SignedStream, AuthError> {
     let signature = convert_signature(&payload.signature).await?;
     let sender = Address::from_str(&payload.sender).map_err(|_| AuthError::InvalidSender)?;
@@ -76,6 +80,7 @@ pub async fn parse_stream_payload(payload: &StreamPayload) -> Result<SignedStrea
     Ok(SignedStream { signature, sender })
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 pub async fn parse_channel_payload(
     payload: &ChannelPayload,
 ) -> Result<(PrimitiveSignature, Vec<u8>, PaymentChannel), AuthError> {
@@ -85,6 +90,7 @@ pub async fn parse_channel_payload(
     Ok((signature, message, payload.payment_channel.clone()))
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 pub async fn get_chain_id(rpc_url: &String) -> Result<u64, AuthError> {
     let provider = ProviderBuilder::new().on_http(rpc_url.parse().unwrap());
 
@@ -96,6 +102,7 @@ pub async fn get_chain_id(rpc_url: &String) -> Result<u64, AuthError> {
     Ok(chain_id)
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 pub async fn get_chain_wss_url(chain_id: &u64) -> Result<String, AuthError> {
     match chain_id {
         1 => return Ok("wss://ethereum-rpc.publicnode.com".to_string()),
@@ -176,6 +183,7 @@ pub async fn get_chain_wss_url(chain_id: &u64) -> Result<String, AuthError> {
     Ok(candidates.remove(0))
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 pub async fn get_chain_name(chain_id: &u64) -> Result<String, AuthError> {
     // Lookup match records first before falling back to chainlist
     match chain_id {
@@ -226,6 +234,7 @@ pub async fn get_chain_name(chain_id: &u64) -> Result<String, AuthError> {
     ))
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 pub async fn get_super_token_from_token(
     chain_id: &u64,
     token_address: &Address,
@@ -274,6 +283,7 @@ pub async fn get_super_token_from_token(
 
 /// Fetch the Constant Flow Agreement (CFAv1) contract address for a given `chain_id`.
 /// Source: Superfluid protocol metadata networks list (CommonJS array export)
+#[cfg(not(target_arch = "wasm32"))]
 pub async fn get_cfa_from_chain_id(chain_id: &u64) -> Result<Address, AuthError> {
     let raw = reqwest::get(SUPERFLUID_NETWORKS_LIST)
         .await

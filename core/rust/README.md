@@ -2,9 +2,19 @@
 
 ## Overview
 
-The `pipegate` middleware provides server-side verification and payment channel management for the PipeGate protocol. This guide covers the setup and configuration for API providers using the Rust implementation.
+The `pipegate` middleware provides server-side verification and multi-scheme payment enforcement (one-time transfers, Superfluid streams, and payment channels) for the PipeGate protocol.
 
-NOTE : Payment channel is only live on Base sepolia ( rpc: "https://base-sepolia-rpc.publicnode.com" ). Other payment methods support all networks.
+As of version `0.6.0` a unified middleware `PaymentsLayer` (alias of `PipegateMiddlewareLayer`) replaces the need to stack separate middleware layers. It automatically:
+
+- Parses the `X-Payment` (x402) header
+- Detects the payment scheme (`one-time`, `stream`, `channel`)
+- Verifies and (if needed) initializes internal state lazily
+- Updates response headers (for channels) with refreshed channel data
+- Emits a proper `402 Payment Required` x402-formatted error if verification fails
+
+Legacy per-scheme layers (`PaymentChannelMiddlewareLayer`, `OnetimePaymentMiddlewareLayer`, `StreamMiddlewareLayer`) are still documented below but deprecated and will be removed in a future major release. Prefer the unified approach for all new integrations.
+
+NOTE: Payment channel on-chain deployment is currently live on Base Sepolia ( rpc: `https://base-sepolia-rpc.publicnode.com` ). Other schemes support multiple networks as long as supported by their respective infrastructure.
 
 ## Installation
 
@@ -12,7 +22,7 @@ Add the following dependencies to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-pipegate = { version = "0.5.0" }  # PipeGate server middleware
+pipegate = { version = "0.6.0" }  # PipeGate server middleware
 axum = "0.7"                               # Web framework
 tokio = { version = "1.0", features = ["full"] }
 alloy = { version = "0.1", features = ["full"] }
@@ -20,9 +30,109 @@ alloy = { version = "0.1", features = ["full"] }
 
 **_Note_**: Axum v0.8.0 has breaking changes. The pipegate tower-based middleware layers are not yet supported in the latest version.
 
+---
+
+## Unified Payments Middleware (Preferred in >= 0.6.0)
+
+### Quick Start
+
+```rust
+use std::str::FromStr;
+use axum::{routing::get, Router};
+use alloy::primitives::Address;
+use pipegate::middleware::{PaymentsLayer, PaymentsState, Scheme, SchemeConfig, MiddlewareConfig};
+
+#[tokio::main]
+async fn main() {
+    // Build scheme configurations (async helpers fetch chain id, name, token decimals, etc.)
+    let one_time = SchemeConfig::new(
+        Scheme::OneTimePayments,
+        "https://base-sepolia-rpc.publicnode.com".to_string(),
+        Address::from_str("0x036CbD53842c5426634e7929541eC2318f3dCF7e").unwrap(), // USDC (example)
+        Address::from_str("0x62c43323447899acb61c18181e34168903e033bf").unwrap(), // recipient
+        "1".to_string(), // human amount (will be parsed using decimals)
+    ).await;
+
+    let stream = SchemeConfig::new(
+        Scheme::SuperfluidStreams,
+        "https://base-sepolia-rpc.publicnode.com".to_string(),
+        Address::from_str("0x036CbD53842c5426634e7929541eC2318f3dCF7e").unwrap(), // underlying token
+        Address::from_str("0x62c43323447899acb61c18181e34168903e033bf").unwrap(),
+        "2".to_string(), // monthly amount in whole tokens (converted to flow rate internally)
+    ).await;
+
+    let channel = SchemeConfig::new(
+        Scheme::PaymentChannels,
+        "https://base-sepolia-rpc.publicnode.com".to_string(),
+        Address::from_str("0x036CbD53842c5426634e7929541eC2318f3dCF7e").unwrap(),
+        Address::from_str("0x62c43323447899acb61c18181e34168903e033bf").unwrap(),
+        "0.001".to_string(), // amount per request (interpreted with token decimals)
+    ).await;
+
+    // Aggregate into middleware config
+    let config = MiddlewareConfig::new(vec![one_time, stream, channel]);
+
+    // State initializes lazily (internal option fields become Some when first scheme is used)
+    let state = PaymentsState::new();
+
+    // Build router
+    let app = Router::new()
+        .route("/", get(root))
+        .layer(PaymentsLayer::new(state, config));
+
+    let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
+    axum::serve(listener, app).await.unwrap();
+}
+
+async fn root() -> &'static str { "ok" }
+```
+
+### Request Flow
+
+1. Client sends `X-Payment: { x402Version, scheme, network, payload }` header.
+2. Middleware selects matching `SchemeConfig` (or returns `402` if unsupported).
+3. Verification path per scheme:
+   - one-time: checks on-chain tx + local redemption rules
+   - stream: verifies Superfluid flow (with caching & optional listener)
+   - channel: verifies signed request & updates channel state, returning updated channel headers
+4. Request continues to handler; for channels, response headers are augmented.
+
+### Migrating from v0.5.x Per-Scheme Layers
+
+| Old API (Deprecated)                             | New Unified API                                         |
+| ------------------------------------------------ | ------------------------------------------------------- |
+| `PaymentChannelMiddlewareLayer::new(state, cfg)` | `PaymentsLayer::new(state, config)`                     |
+| `OnetimePaymentMiddlewareLayer::new(cfg, state)` | (Include one-time `SchemeConfig` in `MiddlewareConfig`) |
+| `StreamMiddlewareLayer::new(cfg, state)`         | (Include stream `SchemeConfig` in `MiddlewareConfig`)   |
+| Multiple `.layer(...)` calls                     | Single `.layer(PaymentsLayer::new(...))`                |
+
+Steps:
+
+1. Build one `MiddlewareConfig` by converting each old per-scheme config into a `SchemeConfig` via `SchemeConfig::new(...)` (async).
+2. Replace stacked layers with one `PaymentsLayer` instance.
+3. Remove direct uses of individual state types unless you need custom inspection (the unified `PaymentsState` holds them lazily).
+4. Update docs/imports to prefer `PaymentsLayer`, `PaymentsState` and `Scheme` enums.
+5. Resolve deprecation warnings; the old layers will be removed in a future major release.
+
+### Header Format (x402)
+
+Clients must send a single JSON header:
+
+```
+X-Payment: { "x402Version":1, "network":"base-sepolia", "scheme":"one-time", "payload": { ... } }
+```
+
+Exact `payload` shape depends on scheme (see original per-scheme sections below for structure reference). The unified middleware internally validates payload vs. scheme and returns `InvalidHeaders` if mismatched.
+
+---
+
+## Legacy (Deprecated) Middleware Guides
+
+The following sections remain for reference and will be removed after the unified API fully replaces them.
+
 ## Basic Setup
 
-### Simple Server Implementation for Payment Channel middleware
+### Simple Server Implementation for Payment Channel middleware (Deprecated)
 
 ```rust
 use alloy::{primitives::U256};
@@ -61,7 +171,7 @@ async fn root() -> &'static str {
 }
 ```
 
-### Simple Server Implementation for One Time payment middleware
+### Simple Server Implementation for One Time payment middleware (Deprecated)
 
 ```rust
 use alloy::{primitives::{U256,Address}};
@@ -97,7 +207,7 @@ async fn root() -> &'static str {
 }
 ```
 
-### Simple Server Implementation for Stream middleware
+### Simple Server Implementation for Stream middleware (Deprecated)
 
 ```rust
 use alloy::{primitives::{U256,Address}};

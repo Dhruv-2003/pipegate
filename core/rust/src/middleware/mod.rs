@@ -2,16 +2,9 @@ pub mod one_time_payment;
 pub mod payment_channel;
 pub mod stream_payment;
 
-pub use state::MiddlewareState;
-pub use types::{MiddlewareConfig, Scheme, SchemeConfig};
-
-// Preferred public naming aliases for unified middleware (introduced in 0.6.0)
-#[doc = "Alias for the unified payments middleware state (preferred external name)"]
-pub type PaymentsState = MiddlewareState;
-#[doc = "Alias for the unified payments middleware config (preferred external name)"]
-pub type PaymentsConfig = MiddlewareConfig;
-
+#[cfg(not(target_arch = "wasm32"))]
 pub(crate) mod state;
+#[cfg(not(target_arch = "wasm32"))]
 pub(crate) mod types;
 
 mod utils;
@@ -21,6 +14,12 @@ use axum::{body::Body, http::Request, response::Response};
 use std::{future::Future, pin::Pin, str::FromStr};
 use tower::{Layer, Service};
 
+#[cfg(not(target_arch = "wasm32"))]
+pub use state::MiddlewareState;
+#[cfg(not(target_arch = "wasm32"))]
+pub use types::{MiddlewareConfig, Scheme, SchemeConfig};
+
+#[cfg(not(target_arch = "wasm32"))]
 use crate::{
     error::AuthError,
     middleware::{
@@ -41,7 +40,17 @@ use crate::{
     },
 };
 
+// Preferred public naming aliases for unified middleware (introduced in 0.6.0)
+#[doc = "Alias for the unified payments middleware state (preferred external name)"]
+#[cfg(not(target_arch = "wasm32"))]
+pub type PaymentsState = MiddlewareState;
+
+#[doc = "Alias for the unified payments middleware config (preferred external name)"]
+#[cfg(not(target_arch = "wasm32"))]
+pub type PaymentsConfig = MiddlewareConfig;
+
 #[derive(Clone)]
+#[cfg(not(target_arch = "wasm32"))]
 pub struct PipegateMiddlewareLayer {
     pub state: MiddlewareState,
     pub config: MiddlewareConfig,
@@ -49,14 +58,17 @@ pub struct PipegateMiddlewareLayer {
 
 /// Preferred alias: use `PaymentsLayer` in new code (added in 0.6.0)
 #[doc = "Unified payments middleware layer handling all supported schemes. Prefer this name over PipegateMiddlewareLayer in new code."]
+#[cfg(not(target_arch = "wasm32"))]
 pub type PaymentsLayer = PipegateMiddlewareLayer;
 
+#[cfg(not(target_arch = "wasm32"))]
 impl PipegateMiddlewareLayer {
     pub fn new(state: MiddlewareState, config: MiddlewareConfig) -> Self {
         Self { state, config }
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 impl<S> Layer<S> for PipegateMiddlewareLayer {
     type Service = PipegateMiddleware<S>;
 
@@ -70,6 +82,7 @@ impl<S> Layer<S> for PipegateMiddlewareLayer {
 }
 
 #[derive(Clone)]
+#[cfg(not(target_arch = "wasm32"))]
 pub struct PipegateMiddleware<S> {
     inner: S,
     state: MiddlewareState,
@@ -78,8 +91,10 @@ pub struct PipegateMiddleware<S> {
 
 /// Preferred alias: use `Payments` in new code (added in 0.6.0)
 #[doc = "Unified payments middleware service wrapper. Prefer this alias over PipegateMiddleware in new code."]
+#[cfg(not(target_arch = "wasm32"))]
 pub type Payments<S> = PipegateMiddleware<S>;
 
+#[cfg(not(target_arch = "wasm32"))]
 impl<S> Service<Request<Body>> for PipegateMiddleware<S>
 where
     S: Service<Request<Body>, Response = Response> + Clone + Send + 'static,

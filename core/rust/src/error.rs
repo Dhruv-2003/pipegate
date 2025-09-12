@@ -6,10 +6,12 @@ use axum::{
 use serde_json::json;
 use thiserror::Error;
 
-use crate::middleware::{
-    one_time_payment::types::{ABS_WINDOW_SEC, MAX_REDEMPTIONS, SESSION_TTL_SEC},
-    types::{PaymentRequiredAccept, PaymentRequiredResponse},
+use crate::middleware::one_time_payment::types::{
+    ABS_WINDOW_SEC, MAX_REDEMPTIONS, SESSION_TTL_SEC,
 };
+
+#[cfg(not(target_arch = "wasm32"))]
+use crate::middleware::types::{PaymentRequiredAccept, PaymentRequiredResponse};
 
 #[derive(Error, Debug, Clone)]
 pub enum AuthError {
@@ -85,6 +87,7 @@ impl From<AuthError> for StatusCode {
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 impl AuthError {
     pub fn into_payment_required_response(self, accepts: Vec<PaymentRequiredAccept>) -> Response {
         let payment_required = PaymentRequiredResponse {
