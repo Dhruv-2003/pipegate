@@ -273,7 +273,7 @@ where
                             let flow_rate_i128 = flow_rate_per_second as i128;
                             I96::try_from(flow_rate_i128).unwrap_or(I96::ZERO)
                         };
-                        
+
                         let streams_config = StreamsConfig {
                             rpc_url: scheme_config.network_rpc_url.clone(),
                             cfa_forwarder: Address::from_str(CFA_V1_FORWARDER_ADDRESS).unwrap(),
@@ -286,6 +286,8 @@ where
                         if state.stream_state.is_none() {
                             println!("Initialising stream state");
                             state = state.with_stream_state();
+                            #[allow(unused_must_use)]
+                            state.start_stream_listener(scheme_config.chain_id, &streams_config);
                         }
 
                         let stream_state = state.stream_state.unwrap();
@@ -401,7 +403,7 @@ where
                                 signature,
                                 payment_channel: payment_channel.clone(),
                                 payment_amount: amount,
-                                body_bytes: Vec::new(), // NOTE: We don't use body_bytes anymore 
+                                body_bytes: Vec::new(), // NOTE: We don't use body_bytes anymore
                                 timestamp: payload.timestamp,
                             };
 

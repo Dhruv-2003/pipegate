@@ -13,14 +13,11 @@ use axum::{
     middleware::Next,
     response::{IntoResponse, Response},
 };
-
-pub use listener::StreamListner;
-
-use state::StreamState;
 use tower::{Layer, Service};
 
+pub use listener::StreamListner;
+use state::StreamState;
 pub use types::{Stream, StreamsConfig};
-
 use utils::parse_stream_headers;
 use verify::verify_stream;
 

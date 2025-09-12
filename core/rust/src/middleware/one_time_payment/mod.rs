@@ -3,9 +3,6 @@ pub mod types;
 pub mod utils;
 pub mod verify;
 
-#[cfg(not(target_arch = "wasm32"))]
-use std::{future::Future, pin::Pin};
-
 use axum::{
     body::Body,
     extract::State,
@@ -13,17 +10,16 @@ use axum::{
     middleware::Next,
     response::{IntoResponse, Response},
 };
-
+#[cfg(not(target_arch = "wasm32"))]
+use std::{future::Future, pin::Pin};
 use tower::{Layer, Service};
-
-use crate::middleware::utils::get_current_time;
 
 use state::OneTimePaymentState;
 use types::OneTimePaymentConfig;
 use utils::parse_tx_headers;
 use verify::verify_tx;
 
-use crate::error::AuthError;
+use crate::{error::AuthError, middleware::utils::get_current_time};
 
 //* ONE TIME PAYMENT MIDDLEWARE (Deprecated standalone in 0.6.0 in favor of unified PaymentsLayer) */
 #[derive(Clone)]

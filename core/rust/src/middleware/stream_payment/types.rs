@@ -33,4 +33,5 @@ pub struct StreamListenerConfig {
 }
 
 pub const CFA_V1_FORWARDER_ADDRESS: &'static str = "0xcfA132E353cB4E398080B9700609bb008eceB125";
-pub const SUPERFLUID_TOKEN_LIST: &'static str = "https://github.com/superfluid-finance/tokenlist/blob/238f8f8d84c439234b533751dd98383247b23e71/superfluid.extended.tokenlist.json";
+pub const SUPERFLUID_TOKEN_LIST: &'static str = "https://raw.githubusercontent.com/superfluid-finance/tokenlist/238f8f8d84c439234b533751dd98383247b23e71/superfluid.extended.tokenlist.json";
+pub const SUPERFLUID_NETWORKS_LIST: &str = "https://raw.githubusercontent.com/superfluid-finance/protocol-monorepo/dev/packages/metadata/main/networks/list.cjs";

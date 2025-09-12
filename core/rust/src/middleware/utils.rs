@@ -11,7 +11,7 @@ use crate::{
     middleware::{
         one_time_payment::types::SignedPaymentTx,
         payment_channel::types::PaymentChannel,
-        stream_payment::types::{SignedStream, SUPERFLUID_TOKEN_LIST},
+        stream_payment::types::{SignedStream, SUPERFLUID_NETWORKS_LIST, SUPERFLUID_TOKEN_LIST},
         types::{ChannelPayload, OneTimePayload, StreamPayload, CHAINLIST_API},
     },
 };
@@ -94,6 +94,86 @@ pub async fn get_chain_id(rpc_url: &String) -> Result<u64, AuthError> {
     })?;
 
     Ok(chain_id)
+}
+
+pub async fn get_chain_wss_url(chain_id: &u64) -> Result<String, AuthError> {
+    match chain_id {
+        1 => return Ok("wss://ethereum-rpc.publicnode.com".to_string()),
+        137 => return Ok("wss://polygon-bor-rpc.publicnode.com".to_string()),
+        42161 => return Ok("wss://arbitrum-one.publicnode.com".to_string()),
+        10 => return Ok("wss://optimism-rpc.publicnode.com".to_string()),
+        8453 => return Ok("wss://base-rpc.publicnode.com".to_string()),
+        _ => {}
+    }
+
+    // Fallback: query Chainlist style aggregate (same endpoint already used by get_chain_name)
+    let response = reqwest::get(CHAINLIST_API)
+        .await
+        .map_err(|e| AuthError::ContractError(e.to_string()))?
+        .json::<serde_json::Value>()
+        .await
+        .map_err(|e| AuthError::ContractError(e.to_string()))?;
+
+    let chains = response.as_array().ok_or(AuthError::ContractError(
+        "Invalid chain list format".to_string(),
+    ))?;
+
+    // Find chain object
+    let chain_obj = chains
+        .iter()
+        .find(|c| c.get("chainId").and_then(|v| v.as_u64()) == Some(*chain_id))
+        .ok_or_else(|| AuthError::ContractError(format!("Chain id {} not found", chain_id)))?;
+
+    // Extract rpc array (can contain strings or objects with { url: ... })
+    let mut candidates: Vec<String> = Vec::new();
+    if let Some(rpc_entries) = chain_obj.get("rpc") {
+        if let Some(arr) = rpc_entries.as_array() {
+            for entry in arr {
+                if let Some(url) = entry.as_str() {
+                    if url.starts_with("wss://") && !url.contains("{") {
+                        candidates.push(url.to_string());
+                    }
+                } else if let Some(obj_url) = entry.get("url").and_then(|v| v.as_str()) {
+                    if obj_url.starts_with("wss://") && !obj_url.contains("{") {
+                        candidates.push(obj_url.to_string());
+                    }
+                }
+            }
+        }
+    }
+
+    if candidates.is_empty() {
+        return Err(AuthError::ContractError(format!(
+            "No wss endpoints found for chain id {}",
+            chain_id
+        )));
+    }
+
+    // Probe each candidate by attempting an HTTPS GET on the same host (cheap liveness heuristic)
+    // Convert wss://host/path -> https://host/path. If the HTTPS endpoint responds (status < 500), accept.
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(4))
+        .build()
+        .map_err(|e| AuthError::ContractError(e.to_string()))?;
+
+    for wss in &candidates {
+        // Derive probe URL
+        let probe = if let Some(rest) = wss.strip_prefix("wss://") {
+            format!("https://{}", rest)
+        } else {
+            continue;
+        };
+
+        // Try a lightweight GET (head sometimes blocked); ignore body
+        if let Ok(resp) = client.get(&probe).send().await {
+            if resp.status().as_u16() < 500 {
+                return Ok(wss.clone());
+            }
+        }
+    }
+
+    // Fallback to first candidate if probing failed
+    Ok(candidates.remove(0))
 }
 
 pub async fn get_chain_name(chain_id: &u64) -> Result<String, AuthError> {
@@ -190,6 +270,64 @@ pub async fn get_super_token_from_token(
     Err(AuthError::ContractError(
         "Super token not found for the given token".to_string(),
     ))
+}
+
+/// Fetch the Constant Flow Agreement (CFAv1) contract address for a given `chain_id`.
+/// Source: Superfluid protocol metadata networks list (CommonJS array export)
+pub async fn get_cfa_from_chain_id(chain_id: &u64) -> Result<Address, AuthError> {
+    let raw = reqwest::get(SUPERFLUID_NETWORKS_LIST)
+        .await
+        .map_err(|e| AuthError::ContractError(e.to_string()))?
+        .text()
+        .await
+        .map_err(|e| AuthError::ContractError(e.to_string()))?;
+
+    // The file starts with optional comments and `module.exports =` then an array literal.
+    // We extract the JSON array substring heuristically.
+    let start = raw.find('[').ok_or_else(|| {
+        AuthError::ContractError("Invalid networks list format (no '[')".to_string())
+    })?;
+    let end = raw.rfind(']').ok_or_else(|| {
+        AuthError::ContractError("Invalid networks list format (no closing ']')".to_string())
+    })?;
+    let array_slice = &raw[start..=end];
+
+    let networks: serde_json::Value = serde_json::from_str(array_slice)
+        .map_err(|e| AuthError::ContractError(format!("Failed to parse networks list: {}", e)))?;
+
+    let networks_arr = networks.as_array().ok_or_else(|| {
+        AuthError::ContractError("Networks list root is not an array".to_string())
+    })?;
+
+    for net in networks_arr {
+        let Some(id) = net.get("chainId").and_then(|v| v.as_u64()) else {
+            continue;
+        };
+        if &id != chain_id {
+            continue;
+        }
+
+        // Prefer contractsV1.cfaV1; if absent, fall back to possible key variations.
+        if let Some(cfa_addr_str) = net
+            .get("contractsV1")
+            .and_then(|c| c.get("cfaV1"))
+            .and_then(|v| v.as_str())
+        {
+            let addr = Address::from_str(cfa_addr_str)
+                .map_err(|_| AuthError::ContractError("Invalid CFA address format".to_string()))?;
+            return Ok(addr);
+        }
+        // If not found provide a clearer error.
+        return Err(AuthError::ContractError(format!(
+            "CFA address not found in contractsV1 for chain id {}",
+            id
+        )));
+    }
+
+    Err(AuthError::ContractError(format!(
+        "Chain id {} not present in Superfluid networks list",
+        chain_id
+    )))
 }
 
 pub fn get_current_time() -> u64 {

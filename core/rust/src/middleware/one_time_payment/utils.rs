@@ -3,7 +3,6 @@ use alloy::{
     hex::{self},
     primitives::{keccak256, FixedBytes, PrimitiveSignature},
 };
-
 use http::HeaderMap;
 
 use crate::{error::AuthError, middleware::one_time_payment::types::SignedPaymentTx};

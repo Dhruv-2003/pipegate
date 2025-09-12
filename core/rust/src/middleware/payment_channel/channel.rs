@@ -12,7 +12,6 @@ use alloy::{
     sol,
 };
 use alloy::{primitives::Bytes, transports::http::reqwest::Url};
-
 use tokio::sync::RwLock;
 
 use crate::{

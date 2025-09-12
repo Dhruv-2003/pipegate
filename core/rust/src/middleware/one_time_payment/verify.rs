@@ -5,10 +5,6 @@ use alloy::{
     providers::{Provider, ProviderBuilder},
 };
 
-use js_sys::Date;
-#[cfg(target_arch = "wasm32")]
-use js_sys::Date;
-
 use crate::{
     error::AuthError,
     middleware::{

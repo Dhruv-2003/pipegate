@@ -6,15 +6,15 @@ use alloy::{
     primitives::U256,
 };
 
-#[cfg(target_arch = "wasm32")]
-use js_sys::Date;
-
 use crate::{
     error::AuthError,
-    middleware::payment_channel::{
-        channel::ChannelState,
-        types::{PaymentChannel, PaymentChannelConfig, SignedRequest},
-        utils::create_channel_message,
+    middleware::{
+        payment_channel::{
+            channel::ChannelState,
+            types::{PaymentChannel, PaymentChannelConfig, SignedRequest},
+            utils::create_channel_message,
+        },
+        utils::get_current_time,
     },
 };
 
@@ -34,15 +34,7 @@ pub async fn verify_and_update_channel(
     println!("Message length: {}", request.message.len());
     println!("Original message: 0x{}", hex::encode(&request.message));
 
-    // Check timestamp first
-    #[cfg(not(target_arch = "wasm32"))]
-    let now = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap()
-        .as_secs();
-
-    #[cfg(target_arch = "wasm32")]
-    let now = (Date::now() as u64) / 1000;
+    let now = get_current_time();
 
     if now - request.timestamp > 300 {
         return Err(AuthError::TimestampError);
@@ -75,14 +67,7 @@ pub async fn verify_and_update_channel(
     let mut channels = state.channels.write().await;
 
     // Check if the channel is not expired with the current timestamp
-    #[cfg(not(target_arch = "wasm32"))]
-    let now = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap()
-        .as_secs();
-
-    #[cfg(target_arch = "wasm32")]
-    let now = (Date::now() as u64) / 1000;
+    let now = get_current_time();
 
     if request.payment_channel.expiration < U256::from(now) {
         return Err(AuthError::Expired);

@@ -1,8 +1,3 @@
-use crate::{
-    error::AuthError,
-    middleware::payment_channel::types::{PaymentChannel, SignedRequest},
-};
-
 use alloy::{
     dyn_abi::DynSolValue,
     hex::{self},
@@ -10,8 +5,12 @@ use alloy::{
 };
 use axum::{body::Body, http::Response};
 use http::HeaderMap;
-
 use std::time::{SystemTime, UNIX_EPOCH};
+
+use crate::{
+    error::AuthError,
+    middleware::payment_channel::types::{PaymentChannel, SignedRequest},
+};
 
 pub async fn parse_headers(
     headers: &HeaderMap,

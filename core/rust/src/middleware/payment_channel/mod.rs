@@ -14,14 +14,9 @@ use axum::{
     middleware::Next,
     response::{IntoResponse, Response},
 };
-
-#[cfg(target_arch = "wasm32")]
-use js_sys::Date;
-
 use tower::{Layer, Service};
 
 use channel::ChannelState;
-
 use types::PaymentChannelConfig;
 use utils::{modify_headers_axum, parse_headers};
 use verify::verify_and_update_channel;
@@ -31,7 +26,10 @@ use crate::error::AuthError;
 //* PAYMENT CHANNEL MIDDLEWARE LOGIC */
 #[derive(Clone)]
 #[cfg(not(target_arch = "wasm32"))]
-#[deprecated(since = "0.6.0", note = "Use middleware::PaymentsLayer (unified PipegateMiddlewareLayer alias)")]
+#[deprecated(
+    since = "0.6.0",
+    note = "Use middleware::PaymentsLayer (unified PipegateMiddlewareLayer alias)"
+)]
 pub struct PaymentChannelMiddlewareLayer {
     pub state: ChannelState,
     pub config: PaymentChannelConfig,
@@ -61,7 +59,10 @@ impl<S> Layer<S> for PaymentChannelMiddlewareLayer {
 
 #[derive(Clone)]
 #[cfg(not(target_arch = "wasm32"))]
-#[deprecated(since = "0.6.0", note = "Use middleware::Payments<S> (unified PipegateMiddleware alias)")]
+#[deprecated(
+    since = "0.6.0",
+    note = "Use middleware::Payments<S> (unified PipegateMiddleware alias)"
+)]
 pub struct PaymentChannelMiddleware<S> {
     inner: S,
     state: ChannelState,

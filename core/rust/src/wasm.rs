@@ -1,5 +1,14 @@
 use std::str::FromStr;
 
+use alloy::{
+    hex,
+    primitives::{Address, Bytes, FixedBytes, PrimitiveSignature, U256},
+};
+use console_error_panic_hook;
+use js_sys::Date;
+use wasm_bindgen::prelude::*;
+use wasm_bindgen_futures::future_to_promise;
+
 use crate::middleware::{
     one_time_payment::{
         types::{OneTimePaymentConfig, SignedPaymentTx},
@@ -17,17 +26,6 @@ use crate::middleware::{
         Stream, StreamListner,
     },
 };
-
-use alloy::{
-    hex,
-    primitives::{Address, Bytes, FixedBytes, PrimitiveSignature, U256},
-};
-
-use console_error_panic_hook;
-
-use js_sys::Date;
-use wasm_bindgen::prelude::*;
-use wasm_bindgen_futures::future_to_promise;
 
 #[wasm_bindgen(start)]
 fn start() {
@@ -189,7 +187,7 @@ pub fn verify_onetime_payment_tx(
 
         let signed_payment_tx = SignedPaymentTx { signature, tx_hash };
 
-        let (payment, result) = verify_tx(signed_payment_tx, onetime_payment_config)
+        let (_, result) = verify_tx(signed_payment_tx, onetime_payment_config)
             .await
             .map_err(|e| JsValue::from_str(&format!("Verification failed: {}", e)))?;
 

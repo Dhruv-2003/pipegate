@@ -4,9 +4,6 @@ use alloy::{
     providers::ProviderBuilder,
     sol,
 };
-
-#[cfg(target_arch = "wasm32")]
-use js_sys::Date;
 use reqwest::Client;
 use serde_json::json;
 
