@@ -5,6 +5,7 @@ import {
   withPaymentInterceptor,
 } from "../src/index";
 
+// @ts-ignore
 const PRIVATE_KEY = process.env.WALLET_PRIVATE_KEY || "0x";
 
 async function testPaymentChannelInterceptors() {

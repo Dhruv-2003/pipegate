@@ -6,7 +6,7 @@ import {
   type PaymentRequirements,
   type RequestConfig,
   type SignedRequest,
-} from "./types";
+} from "./types/index.js";
 import { channelFactoryABI } from "./abi/channelFactory.js";
 import "dotenv/config";
 import {
@@ -29,7 +29,6 @@ import axios, { AxiosInstance, type InternalAxiosRequestConfig } from "axios";
 import { privateKeyToAccount } from "viem/accounts";
 import { baseSepolia } from "viem/chains";
 import { ChannelFactoryAddress } from "./constants/address.js";
-import { time, timeStamp } from "console";
 
 export class ClientInterceptor {
   private nonceMap: Map<string, number> = new Map();
@@ -528,11 +527,32 @@ export function withPaymentInterceptor(
           accepts: PaymentRequirements[];
         };
 
-        //3. Choose the payment scheme (for simplicity, we choose the first one here)
-        const paymentRequirement = accepts[0];
+        //3. Choose the payment requirement based on user provided config (scheme-aware selection)
+        //   Priority: explicit user-provided capability order of discovery
+        //   We build a desired schemes list from provided config and pick the first match in that order.
+        const desiredSchemes: PaymentScheme[] = [];
+        if (config.oneTimePaymentTxHash)
+          desiredSchemes.push(PaymentScheme.OneTime);
+        if (config.channel) desiredSchemes.push(PaymentScheme.PaymentChannel);
+        if (config.streamSender) desiredSchemes.push(PaymentScheme.Stream);
+
+        let paymentRequirement: PaymentRequirements | undefined;
+
+        if (desiredSchemes.length > 0) {
+          for (const scheme of desiredSchemes) {
+            paymentRequirement = accepts.find((r) => r.scheme === scheme);
+            if (paymentRequirement) break;
+          }
+        }
+
+        // Fallback: if nothing matched user config, take first (maintains backward behaviour)
+        if (!paymentRequirement) paymentRequirement = accepts[0];
+
         if (!paymentRequirement) {
           return Promise.reject(
-            new Error("No acceptable payment requirements found")
+            new Error(
+              "No acceptable payment requirements found from server response"
+            )
           );
         }
 
@@ -600,7 +620,7 @@ export function withPaymentInterceptor(
 
           const signedRequest = await client.signPaymentChannelRequest(
             channelState,
-            originalConfig.data
+            undefined
           );
 
           paymentHeader.payload = {
