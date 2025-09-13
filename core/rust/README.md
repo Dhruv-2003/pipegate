@@ -124,8 +124,6 @@ X-Payment: { "x402Version":1, "network":"base-sepolia", "scheme":"one-time", "pa
 
 Exact `payload` shape depends on scheme (see original per-scheme sections below for structure reference). The unified middleware internally validates payload vs. scheme and returns `InvalidHeaders` if mismatched.
 
----
-
 ## Legacy (Deprecated) Middleware Guides
 
 The following sections remain for reference and will be removed after the unified API fully replaces them.
@@ -371,6 +369,18 @@ The PipeGate middleware can be compiled to WebAssembly (WASM) for use in browser
 
 ```bash
 wasm-pack build --target bundler --no-opt
+```
+
+For ESM, web build
+
+```bash
+wasm-pack build --target web --no-opt --release --out-dir pkg/web
+```
+
+For CJS, nodejs build
+
+```bash
+wasm-pack build --target nodejs --no-opt --release --out-dir pkg/nodejs
 ```
 
 Example usage can be found at [tests/index.ts](https://github.com/Dhruv-2003/pipegate/blob/main/core/server/tests/index.ts)

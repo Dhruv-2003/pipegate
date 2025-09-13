@@ -10,58 +10,94 @@ The Web3 Stripe for APIs. Create payment channels or streams, make API calls, pa
 
 ## Description
 
-PipeGate is a decentralized API monetization protocol that changes how APIs handle payments and access control. By replacing traditional API keys with payment channels, one time payments & streams, it enables true pay-per-call pricing without gas fees for each request.
+PipeGate transforms how APIs handle payments by replacing traditional API keys with stablecoin payments and clever cryptography. Instead of managing countless API keys and dealing with complex billing systems, developers can simply connect their wallet and pay for API usage through payment channels, streams, or one-time transactions.
 
-### Detailed documentation can be found at [docs.pipegate.xyz](https://docs.pipegate.xyz)
+### 🆕 Now with x402 Standard Support
+
+As of version 0.6.0, PipeGate implements the [x402 payment protocol](https://x402.org), providing standardized payment headers and seamless integration across different payment schemes. This means better interoperability and a unified payment experience.
+
+### Detailed documentation: [docs.pipegate.xyz](https://docs.pipegate.xyz)
 
 **The protocol consists of three main components:**
 
 - A client-side middleware that automatically handles payment channel creation, request signing, and payment management
-- A server-side middleware that verifies signatures and manages payment channel states
+- A server-side middleware that verifies signatures and manages state with minimal integration effort
 - A smart contract for a new payment channel creation
 
-**Key Features:**
+**What you get:**
 
-- Seamless stablecoins payment using superfluid streams
-- Gasless microtransactions using payment channels
-- Automatic request signing and payment handling
-- No API keys needed - just your wallet
-- Real-time balance updates
-- Self-served onboarding
+- Pay-per-call pricing without gas fees for each request
+- Multiple payment options: channels, streams, or one-time payments
+- No API key management - just connect your wallet
+- Real-time usage tracking and automatic payments
+- Self-service onboarding for both providers and consumers
 
-**This solves three critical problems:**
+**Problems solved:**
 
 - Too many API keys for each product
-- Complex API & Auth management for providers
-- High payment gateway fees
+- Complex API & Authentication infrastructure for providers
+- High payment processor fees eating into margin
 
 ## Demo
 
 - [With Payment channels](https://youtu.be/8KZ1sLNRUwY)
+- [With Streams](https://www.youtube.com/live/lxjodEw3YQo?si=R7FWGjJ0uCrenwqH&t=410)
 
 ## How it's made
 
-PipeGate is built using a stack of modern Web3 technologies and standard web protocols:
+PipeGate is built with a focus on developer experience and standards compliance, implementing the x402 payment protocol for maximum interoperability.
 
 **Core Components:**
 
-1. [Server Middleware (Rust)](https://github.com/Dhruv-2003/pipegate/tree/main/core/server):
+1. **[Server Middleware (Rust)](https://github.com/Dhruv-2003/pipegate/tree/main/core/server)**:
 
-   - Middlewares for signature verification
-   - Utility handlers for parsing headers from requests
-   - WASM compatible
+   - Unified `PaymentsLayer` supporting all payment schemes (v0.6.0+)
+   - x402-compliant header parsing and verification
+   - Automatic scheme detection (one-time, streams, channels)
+   - WASM compatibility for browser environments
+   - Legacy per-scheme middleware for backward compatibility
 
-2. [SDK (TypeScript)](https://github.com/Dhruv-2003/pipegate/tree/main/core/client):
+2. **[Client SDK (TypeScript)](https://github.com/Dhruv-2003/pipegate/tree/main/core/client)**:
 
-   - Axios interceptors for seamless request modification
-   - State management for channels
-   - Exposes server side middlerwares using WASM bindings
+   - Single `withPaymentInterceptor` function for all payment types
+   - Automatic 402 Payment Required handling and retry logic
+   - x402 standard compliant payment headers
+   - Axios interceptors with state management
+   - Legacy interceptors available for migration
 
-3. [Smart Contracts (Solidity)](https://github.com/Dhruv-2003/pipegate/tree/main/core/contract):
+3. **[Smart Contracts (Solidity)](https://github.com/Dhruv-2003/pipegate/tree/main/core/contract)**:
+   - Payment Channel Factory with provider registration
+   - Efficient channel contracts using Beacon Proxy pattern
+   - Integration with Superfluid for streaming payments
+   - One-time payment verification through transaction logs
 
-   - Payment Channel Factory for channel creation
-   - Channel contracts for handling payments
-   - Beacon Proxy pattern for low deployment fees
+**Payment Schemes Supported:**
+
+- **Payment Channels**: Gasless microtransactions with off-chain state updates
+- **Superfluid Streams**: Continuous payment flows for subscription-like access
+- **One-time Payments**: Simple pay-per-request using on-chain transactions
+
+**x402 Integration:**
+All payment schemes follow the x402 standard with unified `X-Payment` headers containing `{ x402Version, network, scheme, payload }`, making PipeGate compatible with other x402-compliant services.
+
+## x402 Standard Implementation
+
+PipeGate implements the [x402 payment protocol](https://x402.org) for standardized API payment flows:
+
+**Payment Flow:**
+
+1. Client requests API endpoint
+2. Server responds with `402 Payment Required` containing accepted payment schemes
+3. Client automatically selects scheme, signs payment, and retries with `X-Payment` header
+4. Server verifies payment and processes request
+
+**Supported Schemes:**
+
+- `one-time`: Pay-per-request using transaction hashes
+- `stream`: Continuous payments via Superfluid streams
+- `channel`: Gasless microtransactions through payment channels
+
+See our [x402 implementation spec](./x402.md) for detailed payment header formats.
 
 ## Architecture & Flow
 
@@ -73,70 +109,62 @@ PipeGate is built using a stack of modern Web3 technologies and standard web pro
 
 <img width="988" alt="Screenshot 2025-01-23 at 10 02 26 PM" src="https://github.com/user-attachments/assets/0ad5a98f-c8a6-4c03-bf11-8618db3cb22f" />
 
-## Publish SDKs & Libraries
+## Published Libraries
 
-- [Rust crate](https://crates.io/crates/pipegate)
-- [TypeScript SDK](https://www.npmjs.com/package/pipegate-sdk)
+**Latest (v0.6.0+) - x402 Standard Support:**
 
-## How to use
+- [Rust Crate](https://crates.io/crates/pipegate) - Unified server middleware
+- [TypeScript SDK](https://www.npmjs.com/package/pipegate-sdk) - Universal client interceptor
 
-### With payment channels
+Both libraries support all payment schemes through a single unified API, replacing the need for separate per-scheme implementations.
 
-### For API Providers
-
-1. **Register your API:**
-
-   - Add your pricing info to ChannelFactory by registering yourselves.
-   - Can directly interact with contract using cast [here](https://github.com/Dhruv-2003/pipegate/tree/main/core/contract#for-api-providers)
-   - Or using a scripts [here](https://github.com/Dhruv-2003/pipegate/blob/main/example/ts/scripts/1_registerAsProvider.ts)
-
-2. **Add the server-side middleware:**
-
-   - Add the PipeGate server middleware to your API server
-   - Supported with axum in rust [lib](https://github.com/Dhruv-2003/pipegate/tree/main/core/server)
-
-3. **Close the channel & withdraw**
-
-   - Directly interact with contract using cast with the [command](https://github.com/Dhruv-2003/pipegate/tree/main/core/contract#for-api-providers)
-   - Using the rust library as well [example](https://github.com/Dhruv-2003/pipegate/tree/main/core/server#closing-channel--withdraw)
-
-### For API Consumers
-
-1. **Create a payment channel:**
-
-   - Use the client-side SDK to create a payment channel with this [script](https://github.com/Dhruv-2003/pipegate/blob/main/example/ts/scripts/2_createChannel.ts)
-   - Supported with sdk in typescript [lib](https://github.com/Dhruv-2003/pipegate/tree/main/core/client)
-   - Or directly interact with contract using cast [here](https://github.com/Dhruv-2003/pipegate/tree/main/core/contract#for-api-consumers)
-
-2. **Make API calls:**
-
-   - Use the client-side SDK to add interceptor to your axios instance with this [sdk](https://github.com/Dhruv-2003/pipegate/tree/main/core/client)
-
-With this project, we've tried to make the complex payment channel system completely invisible to both API providers and consumers, while maintaining security and efficiency.
-
-### With Superfluid streams ( in beta )
+## Quick Start
 
 ### For API Providers
 
-1. **Add the server side middleware**
-   - Add this pipegate server side middleware to your axum based server [here](https://github.com/Dhruv-2003/pipegate/blob/main/core/client/README.md#making-api-calls-with-superfluid-streams-method)
+**1. Add server middleware (Recommended - x402 unified approach)**
+
+```rust
+use pipegate::middleware::{PaymentsLayer, PaymentsState, Scheme, SchemeConfig, MiddlewareConfig};
+
+// Support multiple payment schemes with one middleware
+let config = MiddlewareConfig::new(vec![
+    SchemeConfig::new(Scheme::OneTimePayments, "1".to_string()).await,
+    SchemeConfig::new(Scheme::SuperfluidStreams, "2".to_string()).await,
+    SchemeConfig::new(Scheme::PaymentChannels, "0.001".to_string()).await,
+]);
+
+let app = Router::new()
+    .route("/api", get(handler))
+    .layer(PaymentsLayer::new(PaymentsState::new(), config));
+```
+
+**2. Register your API** (for payment channels)
+
+- Add pricing info to the ChannelFactory contract
+- [Registration guide](https://github.com/Dhruv-2003/pipegate/tree/main/core/contract#for-api-providers)
 
 ### For API Consumers
 
-1. **Create a stream**
+**x402 Unified Client (Recommended)**
 
-   - Create a stream to the API provider's address using the superfluid [app](https://app.superfluid.finance/send)
-   - Or just use the following command from your terminal to start a stream with the provider's address
+```typescript
+import { withPaymentInterceptor } from "pipegate-sdk";
 
-   ```bash
-   cast send 0xcfA132E353cB4E398080B9700609bb008eceB125 "createFlow(address token,address sender,address receiver,int96 flowrate,bytes userData)" 0xtoken 0xsender 0xreceiver flow 0x
-   ```
+// Works with any payment scheme
+const client = withPaymentInterceptor(
+  axios.create({ baseURL: "https://api.example.com" }),
+  PRIVATE_KEY,
+  { oneTimePaymentTxHash: "0x..." } // or streamSender, or channel
+);
 
-2. **Make API calls**
+// Automatic payment handling
+const response = await client.get("/api/endpoint");
+```
 
-   - Use the client-side SDK to add interceptor to your axios instance with this [sdk](https://github.com/Dhruv-2003/pipegate/blob/main/core/server/README.md#simple-server-implementation-for-stream-middleware)
+**Legacy usage instructions and detailed setup guides are available in our [documentation](https://docs.pipegate.xyz).**
 
 ## Team
 
-- [Dhruv Agarwal](https://bento.me/0xdhruv) - Server Side SDK & Smart Contract Development
+- [Dhruv Agarwal](https://0xdhruv.me) - Server Side SDK & Smart Contract Development
 - [Kushagra Sarathe](https://bento.me/kushagrasarathe) - CLient Side SDK
