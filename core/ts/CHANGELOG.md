@@ -1,5 +1,24 @@
 # Changelog
 
+## [V0.6.0] - 2025-09-13
+
+### Added
+
+- `withPaymentInterceptor`: Unified function supporting all payment schemes (one-time, streams, channels)
+- x402 standard compliance with standardized `X-Payment` header format
+- Automatic 402 Payment Required handling and retry logic
+
+### Breaking Changes
+
+- Legacy per-scheme interceptors are now deprecated
+- Payment header format updated to x402 standard
+
+### Deprecated
+
+- `createOneTimePaymentRequestInterceptor` - use `withPaymentInterceptor` with `oneTimePaymentTxHash`
+- `createStreamRequestInterceptor` - use `withPaymentInterceptor` with `streamSender`
+- `createPaymentChannelRequestInterceptor` - use `withPaymentInterceptor` with `channel`
+
 ## [V0.5.1] - 2025-03-18
 
 Changes:
