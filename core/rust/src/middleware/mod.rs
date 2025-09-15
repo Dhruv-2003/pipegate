@@ -9,7 +9,7 @@ pub(crate) mod types;
 
 mod utils;
 
-use alloy::primitives::{aliases::I96, utils::parse_units, Address, U256};
+use alloy::primitives::{aliases::I96, utils::parse_units, Address};
 use axum::{body::Body, http::Request, response::Response};
 use std::{future::Future, pin::Pin, str::FromStr};
 use tower::{Layer, Service};
@@ -121,7 +121,9 @@ where
 
             // Helper function to create x402 responses
             let create_x402_response =
-                |error: AuthError| error.into_x402_response(&config, resource);
+                |error: AuthError, payment_channel: Option<PaymentChannel>| {
+                    error.into_x402_response(&config, resource, payment_channel)
+                };
 
             // 1. Check for X-Payment headers -> PaymentRequiredHeader
             let headers = request.headers();
@@ -129,7 +131,7 @@ where
             let payment_header = match headers.get("X-Payment") {
                 Some(h) => h,
                 None => {
-                    return Ok(create_x402_response(AuthError::MissingHeaders));
+                    return Ok(create_x402_response(AuthError::MissingHeaders, None));
                 }
             };
 
@@ -138,17 +140,17 @@ where
                 .map_err(|_| AuthError::InvalidHeaders)
             {
                 Ok(h) => h,
-                Err(e) => return Ok(create_x402_response(e)),
+                Err(e) => return Ok(create_x402_response(e, None)),
             };
 
             let payment: PaymentHeader =
                 match serde_json::from_str(payment_json).map_err(|_| AuthError::InvalidHeaders) {
                     Ok(p) => p,
-                    Err(e) => return Ok(create_x402_response(e)),
+                    Err(e) => return Ok(create_x402_response(e, None)),
                 };
 
             if !payment.validate_payload_for_scheme() {
-                return Ok(create_x402_response(AuthError::InvalidHeaders));
+                return Ok(create_x402_response(AuthError::InvalidHeaders, None));
             }
 
             // 2. Route to the correct child middleware logic based on scheme
@@ -162,7 +164,9 @@ where
                         let scheme_config = match config.get_scheme_config(Scheme::OneTimePayments)
                         {
                             Some(c) => c,
-                            None => return Ok(create_x402_response(AuthError::SchemeNotAccepted)),
+                            None => {
+                                return Ok(create_x402_response(AuthError::SchemeNotAccepted, None))
+                            }
                         };
 
                         let amount = match parse_units(
@@ -171,7 +175,7 @@ where
                         ) {
                             Ok(a) => a.get_absolute(),
                             Err(_) => {
-                                return Ok(create_x402_response(AuthError::InternalError));
+                                return Ok(create_x402_response(AuthError::InternalError, None));
                             }
                         };
 
@@ -185,15 +189,19 @@ where
 
                         let payment = match parse_onetime_payload(&payload).await {
                             Ok(p) => p,
-                            Err(e) => return Ok(create_x402_response(e)),
+                            Err(e) => return Ok(create_x402_response(e, None)),
                         };
 
-                        if state.one_time_payment_state.is_none() {
+                        if state.one_time_payment_state.read().await.is_none() {
                             println!("Initialising one-time payment state");
-                            state = state.with_one_time_payment_state();
+                            state = state.with_one_time_payment_state().await;
                         }
 
-                        let one_time_payment_state = state.one_time_payment_state.unwrap();
+                        // We need to drop the read guard and use the state directly since OneTimePaymentState methods handle their own locking
+                        let one_time_payment_state = {
+                            let guard = state.one_time_payment_state.read().await;
+                            guard.as_ref().unwrap().clone()
+                        };
                         let current_time = get_current_time();
 
                         if let Some(_) = one_time_payment_state.get(payment.tx_hash).await {
@@ -217,10 +225,13 @@ where
                                 println!("=== end middleware check ===");
                             } else {
                                 println!("Payment is no longer valid for redemption");
-                                return Ok(create_x402_response(AuthError::InvalidTransaction(
-                                    "Payment session expired or max redemptions reached"
-                                        .to_string(),
-                                )));
+                                return Ok(create_x402_response(
+                                    AuthError::InvalidTransaction(
+                                        "Payment session expired or max redemptions reached"
+                                            .to_string(),
+                                    ),
+                                    None,
+                                ));
                             }
                         } else {
                             println!("New payment - verifying transaction");
@@ -229,14 +240,17 @@ where
                             let (new_payment, verify) =
                                 match verify_tx(payment.clone(), onetime_config).await {
                                     Ok(v) => v,
-                                    Err(e) => return Ok(create_x402_response(e)),
+                                    Err(e) => return Ok(create_x402_response(e, None)),
                                 };
 
                             if !verify {
                                 println!("Transaction verification failed");
-                                return Ok(create_x402_response(AuthError::InvalidTransaction(
-                                    "Authentication failed".to_string(),
-                                )));
+                                return Ok(create_x402_response(
+                                    AuthError::InvalidTransaction(
+                                        "Authentication failed".to_string(),
+                                    ),
+                                    None,
+                                ));
                             }
 
                             println!("Transaction verified successfully");
@@ -249,7 +263,6 @@ where
                             one_time_payment_state
                                 .increment_redemptions(payment.clone().tx_hash)
                                 .await;
-                            println!("=== end middleware check ===");
                         }
                         Ok(None)
                     } else {
@@ -262,19 +275,21 @@ where
                             .get_scheme_config(Scheme::SuperfluidStreams)
                         {
                             Some(c) => c,
-                            None => return Ok(create_x402_response(AuthError::SchemeNotAccepted)),
+                            None => {
+                                return Ok(create_x402_response(AuthError::SchemeNotAccepted, None))
+                            }
                         };
 
                         let signed_stream = match parse_stream_payload(&payload).await {
                             Ok(s) => s,
-                            Err(e) => return Ok(create_x402_response(e)),
+                            Err(e) => return Ok(create_x402_response(e, None)),
                         };
 
                         let flow_rate = {
                             let monthly_amount = match scheme_config.amount.parse::<f64>() {
                                 Ok(amount) => amount,
                                 Err(_) => {
-                                    return Ok(create_x402_response(AuthError::InternalError))
+                                    return Ok(create_x402_response(AuthError::InternalError, None))
                                 }
                             };
 
@@ -298,14 +313,18 @@ where
                             cache_time: 900,
                         };
 
-                        if state.stream_state.is_none() {
+                        if state.stream_state.read().await.is_none() {
                             println!("Initialising stream state");
-                            state = state.with_stream_state();
+                            state = state.with_stream_state().await;
                             #[allow(unused_must_use)]
                             state.start_stream_listener(scheme_config.chain_id, &streams_config);
                         }
 
-                        let stream_state = state.stream_state.unwrap();
+                        // We need to drop the read guard and use the state directly since StreamState methods handle their own locking
+                        let stream_state = {
+                            let guard = state.stream_state.read().await;
+                            guard.as_ref().unwrap().clone()
+                        };
                         let current_time = get_current_time();
 
                         if let Some(stream) = stream_state.get(signed_stream.sender).await {
@@ -321,7 +340,7 @@ where
                                 .await
                                 {
                                     Ok(v) => v,
-                                    Err(e) => return Ok(create_x402_response(e)),
+                                    Err(e) => return Ok(create_x402_response(e, None)),
                                 };
 
                                 if !verify {
@@ -329,6 +348,7 @@ where
                                         AuthError::InvalidTransaction(
                                             "Stream verification failed".to_string(),
                                         ),
+                                        None,
                                     ));
                                 }
 
@@ -350,13 +370,16 @@ where
                                     .await
                                 {
                                     Ok(v) => v,
-                                    Err(e) => return Ok(create_x402_response(e)),
+                                    Err(e) => return Ok(create_x402_response(e, None)),
                                 };
 
                             if !verify {
-                                return Ok(create_x402_response(AuthError::InvalidTransaction(
-                                    "Stream verification failed".to_string(),
-                                )));
+                                return Ok(create_x402_response(
+                                    AuthError::InvalidTransaction(
+                                        "Stream verification failed".to_string(),
+                                    ),
+                                    None,
+                                ));
                             }
 
                             let new_stream = crate::middleware::stream_payment::types::Stream {
@@ -381,21 +404,25 @@ where
                         let scheme_config = match config.get_scheme_config(Scheme::PaymentChannels)
                         {
                             Some(c) => c,
-                            None => return Ok(create_x402_response(AuthError::SchemeNotAccepted)),
+                            None => {
+                                return Ok(create_x402_response(AuthError::SchemeNotAccepted, None))
+                            }
                         };
 
-                        let amount = match U256::from_str_radix(
+                        let amount = match parse_units(
                             &scheme_config.amount,
-                            scheme_config.decimals.unwrap_or(18) as u64,
+                            scheme_config.decimals.unwrap_or(18),
                         ) {
-                            Ok(a) => a,
-                            Err(_) => return Ok(create_x402_response(AuthError::InternalError)),
+                            Ok(a) => a.get_absolute(),
+                            Err(_) => {
+                                return Ok(create_x402_response(AuthError::InternalError, None))
+                            }
                         };
 
                         let (signature, message, payment_channel) =
                             match parse_channel_payload(&payload).await {
                                 Ok(data) => data,
-                                Err(e) => return Ok(create_x402_response(e)),
+                                Err(e) => return Ok(create_x402_response(e, None)),
                             };
 
                         let channel_config = PaymentChannelConfig {
@@ -405,12 +432,19 @@ where
                             amount,
                         };
 
-                        if state.channel_state.is_none() {
+                        if state.channel_state.read().await.is_none() {
                             println!("Initialising channel state");
-                            state = state.with_channel_state();
+                            state = state.with_channel_state().await;
                         }
 
-                        let channel_state = state.channel_state.unwrap();
+                        // We need to drop the read guard and use the state directly since ChannelState methods handle their own locking
+                        let channel_state = {
+                            let guard = state.channel_state.read().await;
+                            guard.as_ref().unwrap().clone()
+                        };
+
+                        let existing_channel =
+                            channel_state.get_channel(payment_channel.channel_id).await;
 
                         let signed_request =
                             crate::middleware::payment_channel::types::SignedRequest {
@@ -430,7 +464,7 @@ where
                         .await
                         {
                             Ok((channel, verified)) => (channel, verified),
-                            Err(e) => return Ok(create_x402_response(e)),
+                            Err(e) => return Ok(create_x402_response(e, existing_channel)),
                         };
 
                         if verify {
@@ -441,9 +475,12 @@ where
                                 .insert(updated_channel.channel_id, updated_channel.clone());
                             println!("Channel verified and updated");
                         } else {
-                            return Ok(create_x402_response(AuthError::InvalidTransaction(
-                                "Channel verification failed".to_string(),
-                            )));
+                            return Ok(create_x402_response(
+                                AuthError::InvalidTransaction(
+                                    "Channel verification failed".to_string(),
+                                ),
+                                existing_channel,
+                            ));
                         }
                         Ok(Some(updated_channel.clone()))
                     } else {
@@ -452,6 +489,8 @@ where
                 }
                 None => Err(AuthError::InvalidHeaders),
             };
+
+            println!("=== end middleware check ===");
 
             // Handle verification result
             match verification_result {
@@ -467,7 +506,7 @@ where
                 }
                 Err(auth_error) => {
                     // Payment verification failed, return 402 Payment Required with proper x402 format
-                    Ok(create_x402_response(auth_error))
+                    Ok(create_x402_response(auth_error, None))
                 }
             }
         })

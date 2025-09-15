@@ -11,7 +11,10 @@ use crate::middleware::one_time_payment::types::{
 };
 
 #[cfg(not(target_arch = "wasm32"))]
-use crate::middleware::types::{PaymentRequiredAccept, PaymentRequiredResponse};
+use crate::middleware::{
+    payment_channel::types::PaymentChannel,
+    types::{PaymentRequiredAccept, PaymentRequiredResponse},
+};
 
 #[derive(Error, Debug, Clone)]
 pub enum AuthError {
@@ -104,6 +107,7 @@ impl AuthError {
         self,
         config: &crate::middleware::types::MiddlewareConfig,
         resource: &str,
+        payment_channel: Option<PaymentChannel>,
     ) -> Response {
         let accepts: Vec<PaymentRequiredAccept> = config
             .accepts
@@ -117,12 +121,11 @@ impl AuthError {
                     })),
                     crate::middleware::types::Scheme::SuperfluidStreams => {
                         Some(serde_json::json!({
-                              "flowRate": scheme_config.amount.clone().push_str(" /month")
+                              "flowRate": format!("{}/month", scheme_config.amount)
                         }))
                     }
                     crate::middleware::types::Scheme::PaymentChannels => {
-                        // TODO: Add real payment channel state info here
-                        Some(serde_json::json!("paymentChannelState"))
+                        Some(serde_json::json!(payment_channel))
                     }
                 };
 
@@ -133,7 +136,7 @@ impl AuthError {
                     pay_to: scheme_config.recipient.to_string(),
                     asset: scheme_config.token_address.to_string(),
                     resource: resource.to_string(),
-                    description: Some(format!("Access to {} resource", resource)),
+                    description: Some(format!("Access to {} resource. Go to docs.pipegate.xyz for more info about these payment scheme", resource)),
                     max_timeout_seconds: Some(300), // 5 minutes default
                     extra,
                 }

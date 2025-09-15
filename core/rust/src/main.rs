@@ -84,7 +84,19 @@ pub async fn main() {
         "2".to_string(), // 2 USDC per month
     )
     .await;
-    let middleware_config = MiddlewareConfig::new(vec![stream_payment, onetime_payment]);
+    let payment_channel_payment = SchemeConfig::new(
+        Scheme::PaymentChannels,
+        rpc_url.to_string(),
+        Address::from_str("0x036CbD53842c5426634e7929541eC2318f3dCF7e").unwrap(),
+        Address::from_str("0x62c43323447899acb61c18181e34168903e033bf").unwrap(),
+        "0.001".to_string(), // 0.001 USDC
+    )
+    .await;
+    let middleware_config = MiddlewareConfig::new(vec![
+        stream_payment,
+        onetime_payment,
+        payment_channel_payment,
+    ]);
 
     let app = Router::new()
         .route(
