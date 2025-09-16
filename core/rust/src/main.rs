@@ -166,8 +166,6 @@ use pipegate::middleware::payment_channel::{
 
 #[cfg(not(target_arch = "wasm32"))]
 pub async fn close_and_withdraw(_state: &ChannelState) {
-    // let payment_channel = state.get_channel(U256::from(1)).await.unwrap();
-
     use alloy::primitives::PrimitiveSignature;
 
     let payment_channel = PaymentChannel {
@@ -194,6 +192,38 @@ pub async fn close_and_withdraw(_state: &ChannelState) {
         private_key.as_str(),
         &payment_channel,
         &signature,
+        raw_body,
+    );
+
+    println!("Transaction Hash: {:?}", tx_hash.await);
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+pub async fn close_and_withdraw_from_state(_state: &ChannelState) {
+    use pipegate::middleware::{payment_channel::channel::close_channel_from_state, PaymentsState};
+
+    let payment_state = PaymentsState::new();
+    let channel_state = payment_state
+        .channel_state
+        .clone()
+        .read()
+        .await
+        .as_ref()
+        .unwrap()
+        .clone();
+
+    let rpc_url: alloy::transports::http::reqwest::Url =
+        "https://base-sepolia-rpc.publicnode.com".parse().unwrap();
+
+    let private_key = env::var("PRIVATE_KEY").expect("PRIVATE_KEY must be set");
+
+    let raw_body = Bytes::from("0x");
+
+    let tx_hash = close_channel_from_state(
+        &channel_state,
+        rpc_url,
+        private_key.as_str(),
+        U256::from(1),
         raw_body,
     );
 

@@ -124,6 +124,12 @@ pub async fn verify_and_update_channel(
         request.payment_channel.clone(),
     );
 
+    drop(channels);
+
+    state
+        .update_latest_signature(request.payment_channel.channel_id, request.signature)
+        .await;
+
     println!("API request authorized");
     Ok((request.payment_channel.clone(), true))
 }

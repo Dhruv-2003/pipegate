@@ -485,6 +485,11 @@ where
                                 .write()
                                 .await
                                 .insert(updated_channel.channel_id, updated_channel.clone());
+
+                            channel_state
+                                .update_latest_signature(updated_channel.channel_id, signature)
+                                .await;
+
                             println!("Channel verified and updated");
                         } else {
                             return Ok(create_x402_response(

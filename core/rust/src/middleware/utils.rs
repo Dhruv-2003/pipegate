@@ -84,6 +84,8 @@ pub async fn parse_stream_payload(payload: &StreamPayload) -> Result<SignedStrea
 pub async fn parse_channel_payload(
     payload: &ChannelPayload,
 ) -> Result<(PrimitiveSignature, Vec<u8>, PaymentChannel), AuthError> {
+    println!("Signature : {}", payload.signature);
+    println!("Message : {}", payload.message);
     let signature = convert_signature(&payload.signature).await?;
     let message = hex::decode(&payload.message).map_err(|_| AuthError::InvalidMessage)?;
 

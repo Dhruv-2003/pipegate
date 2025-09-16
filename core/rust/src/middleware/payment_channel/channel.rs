@@ -31,12 +31,14 @@ sol!(
 #[derive(Clone)]
 pub struct ChannelState {
     pub(crate) channels: Arc<RwLock<HashMap<U256, PaymentChannelType>>>, // All the channels the current server has with other user
+    pub(crate) latest_signatures: Arc<RwLock<HashMap<U256, PrimitiveSignature>>>, // Latest signatures for each channel
 }
 
 impl ChannelState {
     pub fn new() -> Self {
         Self {
             channels: Arc::new(RwLock::new(HashMap::new())),
+            latest_signatures: Arc::new(RwLock::new(HashMap::new())),
         }
     }
 
@@ -45,8 +47,19 @@ impl ChannelState {
         channels.get(&channel_id).cloned()
     }
 
-    // verification method
+    /// Get the latest signature for a channel
+    pub async fn get_latest_signature(&self, channel_id: U256) -> Option<PrimitiveSignature> {
+        let signatures = self.latest_signatures.read().await;
+        signatures.get(&channel_id).cloned()
+    }
 
+    /// Update the latest signature for a channel
+    pub async fn update_latest_signature(&self, channel_id: U256, signature: PrimitiveSignature) {
+        let mut signatures = self.latest_signatures.write().await;
+        signatures.insert(channel_id, signature);
+    }
+
+    // verification method
     pub async fn verify_signature(
         &self,
         payment_channel: &PaymentChannelType,
@@ -160,6 +173,31 @@ impl ChannelState {
 
         Ok(())
     }
+}
+
+// Close the channel using the latest signature stored in state
+pub async fn close_channel_from_state(
+    state: &ChannelState,
+    rpc_url: Url,
+    private_key: &str,
+    channel_id: U256,
+    raw_body: Bytes,
+) -> Result<FixedBytes<32>, AuthError> {
+    // Get the channel and latest signature from state
+    let payment_channel = state
+        .get_channel(channel_id)
+        .await
+        .ok_or_else(|| AuthError::ChannelNotFound)?;
+
+    let signature = state
+        .get_latest_signature(channel_id)
+        .await
+        .ok_or_else(|| AuthError::InvalidChannel("No signature found for channel".to_string()))?;
+
+    // Close the channel
+    close_channel(rpc_url, private_key, &payment_channel, &signature, raw_body)
+        .await
+        .map_err(|e| AuthError::ContractError(e.to_string()))
 }
 
 // Close the channel to withdraw the funds

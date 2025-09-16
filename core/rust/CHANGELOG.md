@@ -1,11 +1,19 @@
 # Changelog
 
-## [V0.6.0] - 2025-??-?? (UNRELEASED)
+## [V0.6.0] - 2025-09-16 (UNRELEASED)
 
 ### Added
 
 - Unified multi-scheme payments middleware: `PaymentsLayer` (`PipegateMiddlewareLayer` alias) and `Payments<S>` (`PipegateMiddleware<S>` alias) handling One-Time, Superfluid Streams, and Payment Channels in a single Tower layer.
 - Public aliases `PaymentsState` and `PaymentsConfig` for ergonomic naming.
+- **New `close_and_withdraw_from_state` function** for automatic payment channel closure with state management simplifying channel closure process for API providers
+
+### Improved
+
+- **Enhanced payment channel verification** with reduced time latency:
+  - Optimized internal verification logic for faster processing
+  - Improved signature state tracking for better performance
+  - Streamlined channel state management operations
 
 ### Deprecated
 
