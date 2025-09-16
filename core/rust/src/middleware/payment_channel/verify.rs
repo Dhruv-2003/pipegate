@@ -90,7 +90,10 @@ pub async fn verify_and_update_channel(
                 "Failed: Invalid balance - current: {}, received: {}",
                 existing_channel.balance, request.payment_channel.balance
             );
-            return Err(AuthError::InvalidChannel);
+            return Err(AuthError::InvalidChannel(format!(
+                "Balance mismatch in verify_and_update_channel - expected: {}, received: {}",
+                existing_channel.balance, request.payment_channel.balance
+            )));
         } else {
             println!("Balance match");
         }
@@ -207,7 +210,10 @@ pub async fn verify_channel(
                 "Failed: Invalid balance - current: {}, received: {}",
                 existing_channel.balance, request.payment_channel.balance
             );
-            return Err(AuthError::InvalidChannel);
+            return Err(AuthError::InvalidChannel(format!(
+                "Balance mismatch in verify_channel - expected: {}, received: {}",
+                existing_channel.balance, request.payment_channel.balance
+            )));
         } else {
             println!("Balance match");
         }

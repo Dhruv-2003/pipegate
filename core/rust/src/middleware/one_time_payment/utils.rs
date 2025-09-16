@@ -12,7 +12,11 @@ pub async fn parse_tx_headers(headers: &HeaderMap) -> Result<SignedPaymentTx, Au
         .get("X-Signature")
         .ok_or(AuthError::MissingHeaders)?
         .to_str()
-        .map_err(|_| AuthError::InvalidHeaders)?;
+        .map_err(|_| {
+            AuthError::InvalidHeaders(
+                "X-Signature header contains invalid UTF-8 characters".to_string(),
+            )
+        })?;
 
     let signature = hex::decode(signature.trim_start_matches("0x"))
         .map_err(|_| {
@@ -30,7 +34,11 @@ pub async fn parse_tx_headers(headers: &HeaderMap) -> Result<SignedPaymentTx, Au
         .get("X-Transaction")
         .ok_or(AuthError::MissingHeaders)?
         .to_str()
-        .map_err(|_| AuthError::InvalidHeaders)?;
+        .map_err(|_| {
+            AuthError::InvalidHeaders(
+                "X-TxHash header contains invalid UTF-8 characters".to_string(),
+            )
+        })?;
 
     let tx_hash = hex::decode(tx_hash).map_err(|_| {
         println!("Failed: Message decode");

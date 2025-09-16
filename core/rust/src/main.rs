@@ -89,7 +89,7 @@ pub async fn main() {
         rpc_url.to_string(),
         Address::from_str("0x036CbD53842c5426634e7929541eC2318f3dCF7e").unwrap(),
         Address::from_str("0x62c43323447899acb61c18181e34168903e033bf").unwrap(),
-        "0.001".to_string(), // 0.001 USDC
+        "0.01".to_string(), // 0.001 USDC
     )
     .await;
     let middleware_config = MiddlewareConfig::new(vec![

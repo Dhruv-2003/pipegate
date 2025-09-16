@@ -16,19 +16,21 @@ use tokio::sync::RwLock;
 
 use crate::{
     error::AuthError,
-    middleware::payment_channel::types::{PaymentChannel, PaymentChannelConfig},
+    middleware::payment_channel::types::{
+        PaymentChannel as PaymentChannelType, PaymentChannelConfig,
+    },
 };
 
 sol!(
     #[allow(missing_docs)]
     #[sol(rpc)]
-    PaymentChannelContract,
+    PaymentChannelABI,
     "src/abi/PaymentChannel.json"
 );
 
 #[derive(Clone)]
 pub struct ChannelState {
-    pub(crate) channels: Arc<RwLock<HashMap<U256, PaymentChannel>>>, // All the channels the current server has with other user
+    pub(crate) channels: Arc<RwLock<HashMap<U256, PaymentChannelType>>>, // All the channels the current server has with other user
 }
 
 impl ChannelState {
@@ -38,7 +40,7 @@ impl ChannelState {
         }
     }
 
-    pub async fn get_channel(&self, channel_id: U256) -> Option<PaymentChannel> {
+    pub async fn get_channel(&self, channel_id: U256) -> Option<PaymentChannelType> {
         let channels = self.channels.read().await;
         channels.get(&channel_id).cloned()
     }
@@ -47,7 +49,7 @@ impl ChannelState {
 
     pub async fn verify_signature(
         &self,
-        payment_channel: &PaymentChannel,
+        payment_channel: &PaymentChannelType,
         signature: &PrimitiveSignature,
         message: &[u8],
     ) -> Result<(), AuthError> {
@@ -71,23 +73,22 @@ impl ChannelState {
     pub async fn validate_channel(
         &self,
         config: &PaymentChannelConfig,
-        payment_channel: &PaymentChannel,
+        payment_channel: &PaymentChannelType,
     ) -> Result<(), AuthError> {
         // self.network.validate_channel(channel_id, balance).await
         let provider = ProviderBuilder::new().on_http(config.rpc_url.parse().unwrap());
 
-        let payment_channel_contract =
-            PaymentChannelContract::new(payment_channel.address, provider);
+        let payment_channel_contract = PaymentChannelABI::new(payment_channel.address, provider);
 
-        let balance_value = payment_channel_contract
-            .getBalance()
+        let channel_info = payment_channel_contract
+            .getChannelInfo()
             .call()
             .await
-            .map_err(|e| AuthError::ContractError(e.to_string()))?
-            ._0;
+            .map_err(|e| {
+                AuthError::ContractError(format!("Failed to fetch channel info: {}", e.to_string()))
+            })?;
 
-        let balance = U256::from(balance_value);
-
+        let balance = channel_info.balance;
         println!("Balance: {}", balance);
 
         // If the balance is less than the balance in the local state, return an error
@@ -95,15 +96,7 @@ impl ChannelState {
             return Err(AuthError::InsufficientBalance);
         }
 
-        let expiration_value = payment_channel_contract
-            .expiration()
-            .call()
-            .await
-            .map_err(|e| AuthError::ContractError(e.to_string()))?
-            ._0;
-
-        let expiration = U256::from(expiration_value);
-
+        let expiration = channel_info.exp;
         println!("Expiration: {}", expiration);
 
         if payment_channel.expiration != expiration {
@@ -111,54 +104,44 @@ impl ChannelState {
         }
 
         // Verify the channelID from the contract
-        let channel_id_value = payment_channel_contract
-            .channelId()
-            .call()
-            .await
-            .map_err(|e| AuthError::ContractError(e.to_string()))?
-            ._0;
-        let channel_id = U256::from(channel_id_value);
-
+        let channel_id = channel_info.id;
         println!("Channel ID: {}", channel_id);
 
         if payment_channel.channel_id != channel_id {
-            return Err(AuthError::InvalidChannel);
+            return Err(AuthError::InvalidChannel(format!(
+                "Channel ID mismatch - expected: {}, received: {}",
+                channel_id, payment_channel.channel_id
+            )));
         }
 
         // Verify sender and recipient from the contract
-        let sender_value = payment_channel_contract
-            .sender()
-            .call()
-            .await
-            .map_err(|e| AuthError::ContractError(e.to_string()))?
-            ._0;
+        let sender_value = channel_info.senderAddr;
 
         if payment_channel.sender != sender_value {
-            return Err(AuthError::InvalidChannel);
+            return Err(AuthError::InvalidChannel(format!(
+                "Sender mismatch - expected: {}, received: {}",
+                sender_value, payment_channel.sender
+            )));
         }
 
-        let recipient_value = payment_channel_contract
-            .recipient()
-            .call()
-            .await
-            .map_err(|e| AuthError::ContractError(e.to_string()))?
-            ._0;
+        let recipient_value = channel_info.recipientAddr;
 
         if payment_channel.recipient != recipient_value
             || payment_channel.recipient != config.recipient
         {
-            return Err(AuthError::InvalidChannel);
+            return Err(AuthError::InvalidChannel(format!(
+                "Recipient mismatch - channel recipient: {}, contract recipient: {}, config recipient: {}",
+                payment_channel.recipient, recipient_value, config.recipient
+            )));
         }
 
-        let price_value = payment_channel_contract
-            .price()
-            .call()
-            .await
-            .map_err(|e| AuthError::ContractError(e.to_string()))?
-            ._0;
+        let price_value = channel_info.pricePerRequest;
 
         if price_value != config.amount {
-            return Err(AuthError::InvalidChannel);
+            return Err(AuthError::InvalidChannel(format!(
+                "Price mismatch - expected: {}, contract price: {}",
+                config.amount, price_value
+            )));
         }
 
         let token_value = payment_channel_contract
@@ -169,7 +152,10 @@ impl ChannelState {
             ._0;
 
         if token_value != config.token_address {
-            return Err(AuthError::InvalidChannel);
+            return Err(AuthError::InvalidChannel(format!(
+                "Token address mismatch - expected: {}, contract token: {}",
+                config.token_address, token_value
+            )));
         }
 
         Ok(())
@@ -180,7 +166,7 @@ impl ChannelState {
 pub async fn close_channel(
     rpc_url: Url,
     private_key: &str,
-    payment_channel: &PaymentChannel,
+    payment_channel: &PaymentChannelType,
     signature: &PrimitiveSignature,
     raw_body: Bytes,
 ) -> Result<FixedBytes<32>, Error> {
@@ -191,7 +177,7 @@ pub async fn close_channel(
         .wallet(wallet)
         .on_http(rpc_url.clone());
 
-    let payment_channel_contract = PaymentChannelContract::new(payment_channel.address, provider);
+    let payment_channel_contract = PaymentChannelABI::new(payment_channel.address, provider);
 
     let tx_hash = payment_channel_contract
         .close(

@@ -1,5 +1,5 @@
 use alloy::primitives::Address;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 
 use crate::middleware::{
     payment_channel::types::PaymentChannel,
@@ -55,10 +55,34 @@ pub struct StreamPayload {
     pub sender: String,
 }
 
+// Custom deserializer to handle both string and object formats for paymentChannel
+fn deserialize_payment_channel<'de, D>(deserializer: D) -> Result<PaymentChannel, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    use serde::de::Error;
+
+    #[derive(Deserialize)]
+    #[serde(untagged)]
+    enum PaymentChannelValue {
+        String(String),
+        Object(PaymentChannel),
+    }
+
+    match PaymentChannelValue::deserialize(deserializer)? {
+        PaymentChannelValue::String(s) => serde_json::from_str(&s).map_err(D::Error::custom),
+        PaymentChannelValue::Object(obj) => Ok(obj),
+    }
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ChannelPayload {
     pub signature: String,
     pub message: String,
+    #[serde(
+        rename = "paymentChannel",
+        deserialize_with = "deserialize_payment_channel"
+    )]
     pub payment_channel: PaymentChannel,
     pub timestamp: u64,
 }

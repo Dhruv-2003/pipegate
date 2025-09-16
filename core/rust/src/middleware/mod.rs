@@ -135,22 +135,30 @@ where
                 }
             };
 
-            let payment_json = match payment_header
-                .to_str()
-                .map_err(|_| AuthError::InvalidHeaders)
-            {
+            let payment_json = match payment_header.to_str().map_err(|_| {
+                AuthError::InvalidHeaders(
+                    "X-Payment header contains invalid UTF-8 characters".to_string(),
+                )
+            }) {
                 Ok(h) => h,
                 Err(e) => return Ok(create_x402_response(e, None)),
             };
 
-            let payment: PaymentHeader =
-                match serde_json::from_str(payment_json).map_err(|_| AuthError::InvalidHeaders) {
-                    Ok(p) => p,
-                    Err(e) => return Ok(create_x402_response(e, None)),
-                };
+            let payment: PaymentHeader = match serde_json::from_str(payment_json).map_err(|e| {
+                AuthError::InvalidHeaders(format!("Failed to parse X-Payment JSON: {}", e))
+            }) {
+                Ok(p) => p,
+                Err(e) => return Ok(create_x402_response(e, None)),
+            };
 
             if !payment.validate_payload_for_scheme() {
-                return Ok(create_x402_response(AuthError::InvalidHeaders, None));
+                return Ok(create_x402_response(
+                    AuthError::InvalidHeaders(format!(
+                        "Payload type mismatch: scheme '{}' does not match payload type",
+                        payment.scheme
+                    )),
+                    None,
+                ));
             }
 
             // 2. Route to the correct child middleware logic based on scheme
@@ -266,7 +274,9 @@ where
                         }
                         Ok(None)
                     } else {
-                        Err(AuthError::InvalidHeaders)
+                        Err(AuthError::InvalidHeaders(
+                            "Expected OneTime payload for one-time payment scheme".to_string(),
+                        ))
                     }
                 }
                 Some(Scheme::SuperfluidStreams) => {
@@ -396,7 +406,9 @@ where
 
                         Ok(None)
                     } else {
-                        Err(AuthError::InvalidHeaders)
+                        Err(AuthError::InvalidHeaders(
+                            "Expected Stream payload for stream payment scheme".to_string(),
+                        ))
                     }
                 }
                 Some(Scheme::PaymentChannels) => {
@@ -484,10 +496,14 @@ where
                         }
                         Ok(Some(updated_channel.clone()))
                     } else {
-                        Err(AuthError::InvalidHeaders)
+                        Err(AuthError::InvalidHeaders(
+                            "Expected Channel payload for payment channel scheme".to_string(),
+                        ))
                     }
                 }
-                None => Err(AuthError::InvalidHeaders),
+                None => Err(AuthError::InvalidHeaders(
+                    "Unknown or unsupported payment scheme".to_string(),
+                )),
             };
 
             println!("=== end middleware check ===");

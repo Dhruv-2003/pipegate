@@ -26,7 +26,7 @@ pub async fn parse_stream_headers(headers: &HeaderMap) -> Result<SignedStream, A
         .get("X-Signature")
         .ok_or(AuthError::MissingHeaders)?
         .to_str()
-        .map_err(|_| AuthError::InvalidHeaders)?;
+        .map_err(|_| AuthError::InvalidHeaders("X-Signature header contains invalid UTF-8 characters".to_string()))?;
 
     let signature = hex::decode(signature.trim_start_matches("0x"))
         .map_err(|_| {
@@ -44,7 +44,7 @@ pub async fn parse_stream_headers(headers: &HeaderMap) -> Result<SignedStream, A
         .get("X-Sender")
         .ok_or(AuthError::MissingHeaders)?
         .to_str()
-        .map_err(|_| AuthError::InvalidHeaders)?;
+        .map_err(|_| AuthError::InvalidHeaders("X-Sender header contains invalid UTF-8 characters".to_string()))?;
 
     let sender = Address::from_str(sender).map_err(|_| {
         println!("Failed: Sender conversion");

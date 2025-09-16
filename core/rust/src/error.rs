@@ -20,8 +20,8 @@ use crate::middleware::{
 pub enum AuthError {
     #[error("Missing required headers")]
     MissingHeaders,
-    #[error("Invalid headers")]
-    InvalidHeaders,
+    #[error("Invalid headers: {0}")]
+    InvalidHeaders(String),
     #[error("Invalid timestamp")]
     TimestampError,
     #[error("Invalid signature")]
@@ -32,8 +32,8 @@ pub enum AuthError {
     Expired,
     #[error("Invalid nonce")]
     InvalidNonce,
-    #[error("Invalid payment channel")]
-    InvalidChannel,
+    #[error("Invalid payment channel: {0}")]
+    InvalidChannel(String),
     #[error("Channel not found")]
     ChannelNotFound,
     #[error("Rate limit exceeded")]
@@ -66,13 +66,13 @@ impl From<AuthError> for StatusCode {
     fn from(error: AuthError) -> Self {
         match error {
             AuthError::MissingHeaders => StatusCode::BAD_REQUEST,
-            AuthError::InvalidHeaders => StatusCode::BAD_REQUEST,
+            AuthError::InvalidHeaders(_) => StatusCode::BAD_REQUEST,
             AuthError::TimestampError => StatusCode::REQUEST_TIMEOUT,
             AuthError::InvalidSignature => StatusCode::UNAUTHORIZED,
             AuthError::InsufficientBalance => StatusCode::PAYMENT_REQUIRED,
             AuthError::Expired => StatusCode::UNAUTHORIZED,
             AuthError::InvalidNonce => StatusCode::BAD_REQUEST,
-            AuthError::InvalidChannel => StatusCode::BAD_REQUEST,
+            AuthError::InvalidChannel(_) => StatusCode::BAD_REQUEST,
             AuthError::RateLimitExceeded => StatusCode::TOO_MANY_REQUESTS,
             AuthError::ChannelNotFound => StatusCode::NOT_FOUND,
             AuthError::ContractError(_) => StatusCode::INTERNAL_SERVER_ERROR,

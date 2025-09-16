@@ -31,19 +31,19 @@ pub async fn parse_headers(
         .get("X-Signature")
         .ok_or(AuthError::MissingHeaders)?
         .to_str()
-        .map_err(|_| AuthError::InvalidHeaders)?;
+        .map_err(|_| AuthError::InvalidHeaders("X-Signature header contains invalid UTF-8 characters".to_string()))?;
 
     let message = headers
         .get("X-Message")
         .ok_or(AuthError::MissingHeaders)?
         .to_str()
-        .map_err(|_| AuthError::InvalidHeaders)?;
+        .map_err(|_| AuthError::InvalidHeaders("X-Message header contains invalid UTF-8 characters".to_string()))?;
 
     let payment_data = headers
         .get("X-Payment")
         .ok_or(AuthError::MissingHeaders)?
         .to_str()
-        .map_err(|_| AuthError::InvalidHeaders)?;
+        .map_err(|_| AuthError::InvalidHeaders("X-Payment header contains invalid UTF-8 characters".to_string()))?;
 
     // Print all the headers
     println!("Signature: {}", signature);
@@ -72,7 +72,7 @@ pub async fn parse_headers(
     // Parse payment channel data
     let payment_channel: PaymentChannel = serde_json::from_str(payment_data).map_err(|e| {
         println!("Failed: Payment data decode - Error {}", e);
-        AuthError::InvalidChannel
+        AuthError::InvalidChannel(format!("Failed to parse payment channel data: {}", e))
     })?;
 
     println!("Body: {}", String::from_utf8_lossy(&body_bytes));
