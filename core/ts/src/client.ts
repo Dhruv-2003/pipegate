@@ -31,7 +31,6 @@ import { baseSepolia } from "viem/chains";
 import { ChannelFactoryAddress } from "./constants/address.js";
 
 export class ClientInterceptor {
-  private nonceMap: Map<string, number> = new Map();
   private channelStates: Map<string, PaymentChannelResponse> = new Map();
 
   private account!: Account;
@@ -129,7 +128,7 @@ export class ClientInterceptor {
         topics: event.topics,
       });
 
-      if (eventTopics.eventName != "channelCreated") {
+      if (eventTopics.eventName != "ChannelCreated") {
         throw new Error("Channel ID not found in event logs");
       }
 
@@ -177,14 +176,9 @@ export class ClientInterceptor {
     return this.channelStates.get(channelId);
   }
 
-  private getNonce(channelId: string): string {
-    const currentNonce = this.nonceMap.get(channelId) || 0;
-    this.nonceMap.set(channelId, currentNonce + 1);
-    return currentNonce.toString();
-  }
-
-  updateNonce(channelId: string, nonce: number) {
-    this.nonceMap.set(channelId, nonce);
+  getNonce(channelId: string): string {
+    const channelState = this.channelStates.get(channelId);
+    return channelState?.nonce || "0";
   }
 
   /**
@@ -219,7 +213,7 @@ export class ClientInterceptor {
           [
             BigInt(paymentChannel.channel_id),
             BigInt(paymentChannel.balance),
-            BigInt(this.getNonce(paymentChannel.channel_id)),
+            BigInt(paymentChannel.nonce),
             toHex(bodyBytes) as `0x${string}`,
           ]
         )
@@ -228,7 +222,7 @@ export class ClientInterceptor {
       console.log("\nMessage Components:");
       console.log("Channel ID:", paymentChannel.channel_id);
       console.log("Balance:", paymentChannel.balance);
-      console.log("Nonce:", this.getNonce(paymentChannel.channel_id));
+      console.log("Nonce:", paymentChannel.nonce);
       console.log("Body (hex):", toHex(bodyBytes));
       console.log("Final Message:", encodedMessage);
 
@@ -433,8 +427,6 @@ export class ClientInterceptor {
           // Update channel state
           this.channelStates.set(channelId, paymentChannel);
 
-          this.nonceMap.set(channelId, Number(nextNonce));
-
           return response;
         } catch (err) {
           throw err;
@@ -483,6 +475,10 @@ export function withPaymentInterceptor(
 
   const client = new ClientInterceptor(privateKey);
 
+  if (config.channel) {
+    client.addNewChannel(config.channel.channelId.toString(), config.channel);
+  }
+
   axiosClient.interceptors.response.use(
     (response) => {
       const paymentChannelStr =
@@ -494,12 +490,10 @@ export function withPaymentInterceptor(
       const paymentChannel: PaymentChannelResponse =
         JSON.parse(paymentChannelStr);
       const channelId = paymentChannel.channel_id;
-
       const nextNonce = Number(paymentChannel.nonce) + 1;
 
       paymentChannel.nonce = nextNonce.toString();
       client.updateChannel(channelId, paymentChannel);
-      client.updateNonce(channelId, Number(nextNonce));
 
       return response;
     },
@@ -594,19 +588,12 @@ export function withPaymentInterceptor(
             sender: config.streamSender,
           };
         } else if (paymentRequirement.scheme === PaymentScheme.PaymentChannel) {
-          // TODO: Complete payment channel flow properly
           if (config.channel === undefined) {
             return Promise.reject(
               new Error("Payment channel ID is required for channel payments")
             );
           }
 
-          client.addNewChannel(
-            config.channel.channelId.toString(),
-            config.channel
-          );
-
-          // Have to somehow fetch the state or bring in some persistency algo, maybe we accept the payment channel state itself
           const channelState = client.getChannelState(
             config.channel.channelId.toString()
           );
@@ -626,8 +613,16 @@ export function withPaymentInterceptor(
           paymentHeader.payload = {
             signature: signedRequest.signature,
             message: signedRequest.message,
-            paymentChannel: channelState,
-            timestamp: signedRequest.timestamp,
+            paymentChannel: {
+              address: channelState.address,
+              sender: channelState.sender,
+              recipient: channelState.recipient,
+              balance: channelState.balance.toString(),
+              nonce: channelState.nonce.toString(),
+              expiration: channelState.expiration.toString(),
+              channel_id: channelState.channel_id.toString(),
+            },
+            timestamp: Number(signedRequest.timestamp),
           };
         }
 

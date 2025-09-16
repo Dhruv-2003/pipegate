@@ -1,16 +1,23 @@
 export const paymentChannelABI = [
+  { type: "constructor", inputs: [], stateMutability: "nonpayable" },
   {
     type: "function",
-    name: "balance",
+    name: "channelId",
     inputs: [],
     outputs: [{ name: "", type: "uint256", internalType: "uint256" }],
     stateMutability: "view",
   },
   {
     type: "function",
-    name: "channelId",
+    name: "channelState",
     inputs: [],
-    outputs: [{ name: "", type: "uint256", internalType: "uint256" }],
+    outputs: [
+      {
+        name: "",
+        type: "uint8",
+        internalType: "enum PaymentChannel.ChannelState",
+      },
+    ],
     stateMutability: "view",
   },
   {
@@ -24,7 +31,11 @@ export const paymentChannelABI = [
     type: "function",
     name: "close",
     inputs: [
-      { name: "totalAmount", type: "uint256", internalType: "uint256" },
+      {
+        name: "channelBalance",
+        type: "uint256",
+        internalType: "uint256",
+      },
       { name: "nonce", type: "uint256", internalType: "uint256" },
       { name: "rawBody", type: "bytes", internalType: "bytes" },
       { name: "signature", type: "bytes", internalType: "bytes" },
@@ -61,9 +72,44 @@ export const paymentChannelABI = [
   },
   {
     type: "function",
+    name: "factory",
+    inputs: [],
+    outputs: [{ name: "", type: "address", internalType: "address" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
     name: "getBalance",
     inputs: [],
     outputs: [{ name: "", type: "uint256", internalType: "uint256" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "getChannelInfo",
+    inputs: [],
+    outputs: [
+      { name: "id", type: "uint256", internalType: "uint256" },
+      { name: "senderAddr", type: "address", internalType: "address" },
+      {
+        name: "recipientAddr",
+        type: "address",
+        internalType: "address",
+      },
+      { name: "exp", type: "uint256", internalType: "uint256" },
+      { name: "balance", type: "uint256", internalType: "uint256" },
+      {
+        name: "pricePerRequest",
+        type: "uint256",
+        internalType: "uint256",
+      },
+      { name: "lastNonce", type: "uint256", internalType: "uint256" },
+      {
+        name: "state",
+        type: "uint8",
+        internalType: "enum PaymentChannel.ChannelState",
+      },
+    ],
     stateMutability: "view",
   },
   {
@@ -93,6 +139,13 @@ export const paymentChannelABI = [
     ],
     outputs: [],
     stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    name: "lastProcessedNonce",
+    inputs: [],
+    outputs: [{ name: "", type: "uint256", internalType: "uint256" }],
+    stateMutability: "view",
   },
   {
     type: "function",
@@ -149,24 +202,24 @@ export const paymentChannelABI = [
   },
   {
     type: "event",
-    name: "channelClosed",
+    name: "ChannelClosed",
     inputs: [
       {
-        name: "channel_id",
+        name: "channelId",
         type: "uint256",
-        indexed: false,
+        indexed: true,
         internalType: "uint256",
       },
       {
         name: "sender",
         type: "address",
-        indexed: false,
+        indexed: true,
         internalType: "address",
       },
       {
         name: "recipient",
         type: "address",
-        indexed: false,
+        indexed: true,
         internalType: "address",
       },
       {
@@ -176,13 +229,19 @@ export const paymentChannelABI = [
         internalType: "uint256",
       },
       {
-        name: "amount",
+        name: "amountPaid",
         type: "uint256",
         indexed: false,
         internalType: "uint256",
       },
       {
-        name: "nonce",
+        name: "amountRefunded",
+        type: "uint256",
+        indexed: false,
+        internalType: "uint256",
+      },
+      {
+        name: "finalNonce",
         type: "uint256",
         indexed: false,
         internalType: "uint256",
@@ -192,24 +251,24 @@ export const paymentChannelABI = [
   },
   {
     type: "event",
-    name: "channelCreated",
+    name: "ChannelCreated",
     inputs: [
       {
-        name: "channel_id",
+        name: "channelId",
         type: "uint256",
-        indexed: false,
+        indexed: true,
         internalType: "uint256",
       },
       {
         name: "sender",
         type: "address",
-        indexed: false,
+        indexed: true,
         internalType: "address",
       },
       {
         name: "recipient",
         type: "address",
-        indexed: false,
+        indexed: true,
         internalType: "address",
       },
       {
@@ -219,7 +278,7 @@ export const paymentChannelABI = [
         internalType: "uint256",
       },
       {
-        name: "balance",
+        name: "initialBalance",
         type: "uint256",
         indexed: false,
         internalType: "uint256",
@@ -230,35 +289,23 @@ export const paymentChannelABI = [
         indexed: false,
         internalType: "uint256",
       },
-      {
-        name: "nonce",
-        type: "uint256",
-        indexed: false,
-        internalType: "uint256",
-      },
     ],
     anonymous: false,
   },
   {
     type: "event",
-    name: "depositMade",
+    name: "DepositMade",
     inputs: [
       {
-        name: "channel_id",
+        name: "channelId",
         type: "uint256",
-        indexed: false,
+        indexed: true,
         internalType: "uint256",
       },
       {
         name: "sender",
         type: "address",
-        indexed: false,
-        internalType: "address",
-      },
-      {
-        name: "recipient",
-        type: "address",
-        indexed: false,
+        indexed: true,
         internalType: "address",
       },
       {
@@ -278,28 +325,22 @@ export const paymentChannelABI = [
   },
   {
     type: "event",
-    name: "expirationExtended",
+    name: "ExpirationExtended",
     inputs: [
       {
-        name: "channel_id",
+        name: "channelId",
+        type: "uint256",
+        indexed: true,
+        internalType: "uint256",
+      },
+      {
+        name: "oldExpiration",
         type: "uint256",
         indexed: false,
         internalType: "uint256",
       },
       {
-        name: "sender",
-        type: "address",
-        indexed: false,
-        internalType: "address",
-      },
-      {
-        name: "recipient",
-        type: "address",
-        indexed: false,
-        internalType: "address",
-      },
-      {
-        name: "expiration",
+        name: "newExpiration",
         type: "uint256",
         indexed: false,
         internalType: "uint256",
@@ -309,25 +350,25 @@ export const paymentChannelABI = [
   },
   {
     type: "event",
-    name: "timeoutClaimed",
+    name: "TimeoutClaimed",
     inputs: [
       {
-        name: "channel_id",
+        name: "channelId",
         type: "uint256",
-        indexed: false,
+        indexed: true,
         internalType: "uint256",
       },
       {
         name: "sender",
         type: "address",
-        indexed: false,
+        indexed: true,
         internalType: "address",
       },
       {
-        name: "recipient",
-        type: "address",
+        name: "amount",
+        type: "uint256",
         indexed: false,
-        internalType: "address",
+        internalType: "uint256",
       },
       {
         name: "timestamp",

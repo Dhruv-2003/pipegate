@@ -2,6 +2,20 @@ export const channelFactoryABI = [
   { type: "constructor", inputs: [], stateMutability: "nonpayable" },
   {
     type: "function",
+    name: "MAX_CHANNEL_DURATION",
+    inputs: [],
+    outputs: [{ name: "", type: "uint256", internalType: "uint256" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "MINIMUM_PRICE",
+    inputs: [],
+    outputs: [{ name: "", type: "uint256", internalType: "uint256" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
     name: "channels",
     inputs: [{ name: "", type: "uint256", internalType: "uint256" }],
     outputs: [{ name: "", type: "address", internalType: "address" }],
@@ -13,16 +27,91 @@ export const channelFactoryABI = [
     inputs: [
       { name: "recipient", type: "address", internalType: "address" },
       { name: "_duration", type: "uint256", internalType: "uint256" },
-      { name: "_tokenAddress", type: "address", internalType: "address" },
+      {
+        name: "_tokenAddress",
+        type: "address",
+        internalType: "address",
+      },
       { name: "_amount", type: "uint256", internalType: "uint256" },
     ],
-    outputs: [],
+    outputs: [
+      { name: "channelId", type: "uint256", internalType: "uint256" },
+      {
+        name: "channelAddress",
+        type: "address",
+        internalType: "address",
+      },
+    ],
     stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    name: "getChannelInfo",
+    inputs: [{ name: "channelId", type: "uint256", internalType: "uint256" }],
+    outputs: [
+      { name: "exists", type: "bool", internalType: "bool" },
+      {
+        name: "channelAddress",
+        type: "address",
+        internalType: "address",
+      },
+      { name: "id", type: "uint256", internalType: "uint256" },
+      { name: "sender", type: "address", internalType: "address" },
+      { name: "recipient", type: "address", internalType: "address" },
+      { name: "expiration", type: "uint256", internalType: "uint256" },
+      { name: "balance", type: "uint256", internalType: "uint256" },
+      { name: "price", type: "uint256", internalType: "uint256" },
+      { name: "lastNonce", type: "uint256", internalType: "uint256" },
+      {
+        name: "state",
+        type: "uint8",
+        internalType: "enum PaymentChannel.ChannelState",
+      },
+    ],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "getRecipientChannels",
+    inputs: [{ name: "recipient", type: "address", internalType: "address" }],
+    outputs: [{ name: "", type: "uint256[]", internalType: "uint256[]" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "getSenderChannels",
+    inputs: [{ name: "sender", type: "address", internalType: "address" }],
+    outputs: [{ name: "", type: "uint256[]", internalType: "uint256[]" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "isRegisteredProvider",
+    inputs: [{ name: "provider", type: "address", internalType: "address" }],
+    outputs: [{ name: "", type: "bool", internalType: "bool" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "paymentChannelImplementation",
+    inputs: [],
+    outputs: [{ name: "", type: "address", internalType: "address" }],
+    stateMutability: "view",
   },
   {
     type: "function",
     name: "pricing",
     inputs: [{ name: "", type: "address", internalType: "address" }],
+    outputs: [{ name: "", type: "uint256", internalType: "uint256" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "recipientChannels",
+    inputs: [
+      { name: "", type: "address", internalType: "address" },
+      { name: "", type: "uint256", internalType: "uint256" },
+    ],
     outputs: [{ name: "", type: "uint256", internalType: "uint256" }],
     stateMutability: "view",
   },
@@ -35,6 +124,16 @@ export const channelFactoryABI = [
   },
   {
     type: "function",
+    name: "senderChannels",
+    inputs: [
+      { name: "", type: "address", internalType: "address" },
+      { name: "", type: "uint256", internalType: "uint256" },
+    ],
+    outputs: [{ name: "", type: "uint256", internalType: "uint256" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
     name: "totalChannels",
     inputs: [],
     outputs: [{ name: "", type: "uint256", internalType: "uint256" }],
@@ -42,7 +141,7 @@ export const channelFactoryABI = [
   },
   {
     type: "event",
-    name: "channelCreated",
+    name: "ChannelCreated",
     inputs: [
       {
         name: "channelId",
@@ -53,7 +152,7 @@ export const channelFactoryABI = [
       {
         name: "channelAddress",
         type: "address",
-        indexed: false,
+        indexed: true,
         internalType: "address",
       },
       {
@@ -65,7 +164,7 @@ export const channelFactoryABI = [
       {
         name: "recipient",
         type: "address",
-        indexed: true,
+        indexed: false,
         internalType: "address",
       },
       {
@@ -103,7 +202,7 @@ export const channelFactoryABI = [
   },
   {
     type: "event",
-    name: "pricingRegistered",
+    name: "PricingRegistered",
     inputs: [
       {
         name: "recipient",
@@ -113,6 +212,37 @@ export const channelFactoryABI = [
       },
       {
         name: "price",
+        type: "uint256",
+        indexed: false,
+        internalType: "uint256",
+      },
+      {
+        name: "timestamp",
+        type: "uint256",
+        indexed: false,
+        internalType: "uint256",
+      },
+    ],
+    anonymous: false,
+  },
+  {
+    type: "event",
+    name: "PricingUpdated",
+    inputs: [
+      {
+        name: "recipient",
+        type: "address",
+        indexed: true,
+        internalType: "address",
+      },
+      {
+        name: "oldPrice",
+        type: "uint256",
+        indexed: false,
+        internalType: "uint256",
+      },
+      {
+        name: "newPrice",
         type: "uint256",
         indexed: false,
         internalType: "uint256",
