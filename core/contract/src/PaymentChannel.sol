@@ -16,63 +16,147 @@ interface IERC20 {
     function balanceOf(address account) external view returns (uint256);
 }
 
+/**
+ * @title PaymentChannel
+ * @notice A payment channel contract that enables micropayments between API consumers and providers
+ * @dev This contract allows for off-chain signed transactions that can be settled on-chain
+ * The channel supports deposits, signature-based closures, and timeout mechanisms
+ */
 contract PaymentChannel {
-    bool isInit;
+    /// @notice Channel states for better state management
+    enum ChannelState {
+        Uninitialized,
+        Open,
+        Closed
+    }
 
-    uint256 public channelId; // TODO: Could be like a hash of the sender infos or just a counter identifier
+    /// @notice Current state of the payment channel
+    ChannelState public channelState;
 
+    /// @notice Unique identifier for this payment channel
+    uint256 public channelId;
+
+    /// @notice Address of the API consumer (payer)
     address public sender;
+
+    /// @notice Address of the API provider (payee)
     address public recipient;
-    uint256 public expiration; // Timeout in case the recipient never closes.
 
-    uint256 public depositBalance; // Token balance
-    IERC20 public token; // Token address
+    /// @notice Timestamp when the channel expires and can be force-closed by sender
+    uint256 public expiration;
 
-    uint256 public price; // Price per API request decided by the recipient
+    /// @notice ERC20 token used for payments in this channel
+    IERC20 public token;
 
-    event channelCreated(
-        uint channel_id,
-        address sender,
-        address recipient,
+    /// @notice Price per API request in token units (set by recipient)
+    uint256 public price;
+
+    /// @notice Last processed nonce to prevent replay attacks
+    uint256 public lastProcessedNonce;
+
+    /// @notice Address authorized to initialize this channel (factory contract)
+    address public factory;
+
+    /// @notice Emitted when a new payment channel is created
+    event ChannelCreated(
+        uint256 indexed channelId,
+        address indexed sender,
+        address indexed recipient,
         uint256 expiration,
-        uint256 balance,
-        uint price,
-        uint nonce
+        uint256 initialBalance,
+        uint256 price
     );
 
-    event channelClosed(
-        uint channel_id,
-        address sender,
-        address recipient,
+    /// @notice Emitted when a payment channel is closed via signature
+    event ChannelClosed(
+        uint256 indexed channelId,
+        address indexed sender,
+        address indexed recipient,
         uint256 timestamp,
-        uint256 amount,
-        uint256 nonce
+        uint256 amountPaid,
+        uint256 amountRefunded,
+        uint256 finalNonce
     );
 
-    event depositMade(
-        uint channel_id,
-        address sender,
-        address recipient,
+    /// @notice Emitted when additional funds are deposited to the channel
+    event DepositMade(
+        uint256 indexed channelId,
+        address indexed sender,
         uint256 amount,
         uint256 newBalance
     );
 
-    event expirationExtended(
-        uint channel_id,
-        address sender,
-        address recipient,
-        uint256 expiration
+    /// @notice Emitted when channel expiration is extended
+    event ExpirationExtended(
+        uint256 indexed channelId,
+        uint256 oldExpiration,
+        uint256 newExpiration
     );
 
-    event timeoutClaimed(
-        uint channel_id,
-        address sender,
-        address recipient,
+    /// @notice Emitted when sender claims funds after timeout
+    event TimeoutClaimed(
+        uint256 indexed channelId,
+        address indexed sender,
+        uint256 amount,
         uint256 timestamp
     );
 
-    // Initialize the channel
-    // NOTE: Needs the sender to approve the contract to spend the token amount
+    /// @notice Restricts function access to only the factory contract
+    modifier onlyFactory() {
+        require(msg.sender == factory, "PaymentChannel: Only factory can call");
+        _;
+    }
+
+    /// @notice Restricts function access to only the channel sender
+    modifier onlySender() {
+        require(msg.sender == sender, "PaymentChannel: Only sender can call");
+        _;
+    }
+
+    /// @notice Restricts function access to only the channel recipient
+    modifier onlyRecipient() {
+        require(
+            msg.sender == recipient,
+            "PaymentChannel: Only recipient can call"
+        );
+        _;
+    }
+
+    /// @notice Ensures the channel is in the expected state
+    modifier onlyInState(ChannelState expectedState) {
+        require(
+            channelState == expectedState,
+            "PaymentChannel: Invalid channel state"
+        );
+        _;
+    }
+
+    /// @notice Ensures the channel has not expired
+    modifier notExpired() {
+        require(
+            block.timestamp < expiration,
+            "PaymentChannel: Channel has expired"
+        );
+        _;
+    }
+
+    /// @notice Sets the factory address during contract creation
+    constructor() {
+        // Mark as closed to prevent initialization of the implementation
+        channelState = ChannelState.Closed;
+    }
+
+    /**
+     * @notice Initializes a new payment channel
+     * @dev Can only be called once by the factory contract
+     * @param _recipient The API provider who will receive payments
+     * @param _sender The API consumer who will make payments
+     * @param _duration Duration in seconds before the channel can be force-closed
+     * @param _tokenAddress Address of the ERC20 token to be used for payments
+     * @param _amount Initial deposit amount from the sender
+     * @param _price Price per API request in token units
+     * @param _channelId Unique identifier for this channel
+     */
     function init(
         address _recipient,
         address _sender,
@@ -81,51 +165,98 @@ contract PaymentChannel {
         uint256 _amount,
         uint256 _price,
         uint256 _channelId
-    ) public {
-        require(!isInit, "Channel already initialized");
+    ) external onlyInState(ChannelState.Uninitialized) {
+        require(
+            _recipient != address(0),
+            "PaymentChannel: Invalid recipient address"
+        );
+        require(
+            _sender != address(0),
+            "PaymentChannel: Invalid sender address"
+        );
+        require(
+            _tokenAddress != address(0),
+            "PaymentChannel: Invalid token address"
+        );
+        require(
+            _amount > 0,
+            "PaymentChannel: Initial amount must be greater than 0"
+        );
+        require(_price > 0, "PaymentChannel: Price must be greater than 0");
+        require(
+            _duration > 0,
+            "PaymentChannel: Duration must be greater than 0"
+        );
+
+        // Set factory for proxy instances
+        factory = msg.sender;
+
         sender = _sender;
         recipient = _recipient;
         expiration = block.timestamp + _duration;
-
         token = IERC20(_tokenAddress);
-        // Transfer the token amount to the contract from the calling contracts
-        token.transferFrom(msg.sender, address(this), _amount);
-        depositBalance = _amount;
-
         price = _price;
         channelId = _channelId;
+        channelState = ChannelState.Open;
 
-        isInit = true;
+        // Transfer initial deposit from factory to this contract
+        require(
+            token.transferFrom(msg.sender, address(this), _amount),
+            "PaymentChannel: Initial deposit transfer failed"
+        );
 
-        emit channelCreated(
+        emit ChannelCreated(
             channelId,
             sender,
             recipient,
             expiration,
-            depositBalance,
-            price,
-            0
+            _amount,
+            price
         );
     }
 
-    // Deposit new token amount to the contract
-    function deposit(uint _amount) external {
-        require(msg.sender == sender, "Only sender can deposit");
-        token.transferFrom(sender, address(this), _amount);
-        depositBalance += _amount;
+    /**
+     * @notice Allows the sender to deposit additional funds to the channel
+     * @dev Can only be called by the channel sender while channel is open
+     * @param _amount Amount of tokens to deposit
+     */
+    function deposit(
+        uint256 _amount
+    ) external onlySender onlyInState(ChannelState.Open) notExpired {
+        require(
+            _amount > 0,
+            "PaymentChannel: Deposit amount must be greater than 0"
+        );
 
-        emit depositMade(channelId, sender, recipient, _amount, depositBalance);
+        require(
+            token.transferFrom(sender, address(this), _amount),
+            "PaymentChannel: Deposit transfer failed"
+        );
+
+        emit DepositMade(channelId, sender, _amount, getBalance());
     }
 
-    // Closing the channel using the senders signature to claim the amount & transfer the amount to the recipient
-    // NOTE: Edge case possible, that does the contract owner
+    /**
+     * @notice Closes the channel using a signature from the sender
+     * @dev Can only be called by the recipient. Validates signature and prevents replay attacks
+     * @param channelBalance The remaining balance that should stay in the channel
+     * @param nonce Nonce for replay protection (must be greater than lastProcessedNonce)
+     * @param rawBody Additional data that was signed (for extensibility)
+     * @param signature Sender's signature authorizing the payment
+     */
     function close(
-        uint256 channelBalance, // the balance left in the channel
+        uint256 channelBalance,
         uint256 nonce,
         bytes calldata rawBody,
         bytes calldata signature
-    ) public {
-        require(msg.sender == recipient);
+    ) external onlyRecipient onlyInState(ChannelState.Open) {
+        require(nonce > lastProcessedNonce, "PaymentChannel: Invalid nonce");
+
+        uint256 currentBalance = getBalance();
+        require(
+            channelBalance <= currentBalance,
+            "PaymentChannel: Invalid channel balance"
+        );
 
         // Verify the signature
         bytes32 messageHash = keccak256(
@@ -135,66 +266,162 @@ contract PaymentChannel {
 
         require(
             recoverSigner(ethSignedMessageHash, signature) == sender,
-            "Invalid Signature"
+            "PaymentChannel: Invalid signature"
         );
 
-        uint256 totalAmount = getBalance() - channelBalance;
+        // Calculate payment amount (difference between current balance and remaining balance)
+        uint256 paymentAmount = currentBalance - channelBalance;
 
-        // Token transfer to the recipient
-        token.transfer(recipient, totalAmount);
+        // Update state before external calls
+        channelState = ChannelState.Closed;
+        lastProcessedNonce = nonce;
 
-        // Transfer the remaining balance to the sender
-        uint256 remainingBalance = getBalance();
-        if (remainingBalance > 0) {
-            token.transfer(sender, remainingBalance);
+        // Transfer payment to recipient
+        if (paymentAmount > 0) {
+            require(
+                token.transfer(recipient, paymentAmount),
+                "PaymentChannel: Payment transfer failed"
+            );
         }
 
-        emit channelClosed(
+        // Transfer remaining balance back to sender
+        if (channelBalance > 0) {
+            require(
+                token.transfer(sender, channelBalance),
+                "PaymentChannel: Refund transfer failed"
+            );
+        }
+
+        emit ChannelClosed(
             channelId,
             sender,
             recipient,
             block.timestamp,
-            totalAmount,
+            paymentAmount,
+            channelBalance,
             nonce
         );
     }
 
-    // Extend the expiration time for the contract
-    function extend(uint256 newExpiration) public {
-        require(msg.sender == sender);
-        require(newExpiration > expiration);
+    /**
+     * @notice Extends the expiration time of the channel
+     * @dev Can only be called by the sender while channel is open
+     * @param newExpiration New expiration timestamp (must be later than current expiration)
+     */
+    function extend(
+        uint256 newExpiration
+    ) external onlySender onlyInState(ChannelState.Open) {
+        require(
+            newExpiration > expiration,
+            "PaymentChannel: New expiration must be later"
+        );
+        require(
+            newExpiration > block.timestamp,
+            "PaymentChannel: New expiration must be in the future"
+        );
+
+        uint256 oldExpiration = expiration;
         expiration = newExpiration;
 
-        emit expirationExtended(channelId, sender, recipient, expiration);
+        emit ExpirationExtended(channelId, oldExpiration, newExpiration);
     }
 
-    // Claim the remaining balance after the expiration time
-    function claimTimeout() public {
-        require(block.timestamp >= expiration);
-        token.transfer(recipient, token.balanceOf(address(this)));
+    /**
+     * @notice Allows sender to claim all remaining funds after the channel expires
+     * @dev Can only be called after expiration timestamp has passed
+     */
+    function claimTimeout() external onlySender onlyInState(ChannelState.Open) {
+        require(
+            block.timestamp >= expiration,
+            "PaymentChannel: Channel has not expired yet"
+        );
 
-        emit timeoutClaimed(channelId, sender, recipient, block.timestamp);
+        uint256 balance = getBalance();
+        require(balance > 0, "PaymentChannel: No funds to claim");
+
+        // Update state before external call
+        channelState = ChannelState.Closed;
+
+        require(
+            token.transfer(sender, balance),
+            "PaymentChannel: Timeout claim transfer failed"
+        );
+
+        emit TimeoutClaimed(channelId, sender, balance, block.timestamp);
     }
 
+    /**
+     * @notice Returns the current token balance of the channel
+     * @return The balance of tokens held by this contract
+     */
     function getBalance() public view returns (uint256) {
         return token.balanceOf(address(this));
     }
 
-    //######  UTILITY FUNCTIONS ######//
+    /**
+     * @notice Returns comprehensive channel information
+     * @return id Channel ID
+     * @return senderAddr Sender address
+     * @return recipientAddr Recipient address
+     * @return exp Expiration timestamp
+     * @return balance Current token balance
+     * @return pricePerRequest Price per API request
+     * @return lastNonce Last processed nonce
+     * @return state Current channel state
+     */
+    function getChannelInfo()
+        external
+        view
+        returns (
+            uint256 id,
+            address senderAddr,
+            address recipientAddr,
+            uint256 exp,
+            uint256 balance,
+            uint256 pricePerRequest,
+            uint256 lastNonce,
+            ChannelState state
+        )
+    {
+        return (
+            channelId,
+            sender,
+            recipient,
+            expiration,
+            getBalance(),
+            price,
+            lastProcessedNonce,
+            channelState
+        );
+    }
 
+    //######  SIGNATURE VERIFICATION UTILITIES ######//
+
+    /**
+     * @notice Recovers the signer address from an Ethereum signed message hash and signature
+     * @param _ethSignedMessageHash The hash of the signed message
+     * @param _signature The signature bytes
+     * @return The address of the signer
+     */
     function recoverSigner(
         bytes32 _ethSignedMessageHash,
         bytes memory _signature
     ) public pure returns (address) {
         (bytes32 r, bytes32 s, uint8 v) = splitSignature(_signature);
-
         return ecrecover(_ethSignedMessageHash, v, r, s);
     }
 
+    /**
+     * @notice Splits a signature into its r, s, v components
+     * @param sig The signature bytes to split
+     * @return r The r component of the signature
+     * @return s The s component of the signature
+     * @return v The v component of the signature
+     */
     function splitSignature(
         bytes memory sig
     ) public pure returns (bytes32 r, bytes32 s, uint8 v) {
-        require(sig.length == 65, "invalid signature length");
+        require(sig.length == 65, "PaymentChannel: Invalid signature length");
 
         assembly {
             r := mload(add(sig, 32))
@@ -203,6 +430,11 @@ contract PaymentChannel {
         }
     }
 
+    /**
+     * @notice Converts a message hash to an Ethereum signed message hash
+     * @param _messageHash The original message hash
+     * @return The Ethereum signed message hash
+     */
     function getEthSignedMessageHash(
         bytes32 _messageHash
     ) public pure returns (bytes32) {
