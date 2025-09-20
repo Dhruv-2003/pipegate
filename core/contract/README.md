@@ -6,7 +6,7 @@ Payment channel smart contracts for the PipeGate protocol - The Web3 Stripe for 
 
 **Base Sepolia Testnet**
 
-- Channel Factory: `0x09443Ec32E54916366927ccDC9D372474324F427`
+- Channel Factory: `0x5acfbe1f9B0183Ef7F2F8d8993d76f24B862092d`
 - USDC Token: `0x036CbD53842c5426634e7929541eC2318f3dCF7e`
 
 ## Development Setup
@@ -114,7 +114,7 @@ Create a `.env` file:
 ```env
 PRIVATE_KEY=your_private_key
 RPC_URL=https://base-sepolia-rpc.publicnode.com
-FACTORY_ADDRESS=0x09443Ec32E54916366927ccDC9D372474324F427
+FACTORY_ADDRESS=0x5acfbe1f9B0183Ef7F2F8d8993d76f24B862092d
 USDC_ADDRESS=0x036CbD53842c5426634e7929541eC2318f3dCF7e
 ```
 

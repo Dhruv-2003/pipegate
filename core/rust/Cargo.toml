@@ -1,0 +1,49 @@
+[package]
+name = "pipegate"
+version = "0.6.0"
+edition = "2021"
+description = "A payment authentication middleware with stablecoins"
+license = "MIT"
+homepage="https://github.com/Dhruv-2003/pipegate"
+repository="https://github.com/Dhruv-2003/pipegate"
+readme ="README.md"
+keywords = ["blockchain", "payment", "ethereum"]
+categories = ["cryptography", "network-programming", "web-programming"]
+exclude=["src/main.rs","test"]
+
+[dependencies]
+alloy = { version = "0.6.4",  default-features = false, features = ["contract","signer-local","provider-http","reqwest","provider-ws","rpc-types","pubsub"]  }
+serde = { version = "1.0.215", features = ["derive"] }
+serde_json = "1.0.132"
+serde_with = "3.11.0"
+thiserror = "2.0.3"
+js-sys = "0.3.76"
+wasm-bindgen = "0.2.99"
+wasm-bindgen-futures = "0.4.49"
+console_error_panic_hook = "0.1.7"
+console_log = "1.0.0"
+reqwest = { version = "0.11", features = ["json"] }
+tower = "0.5.2"
+http = "1.2.0"
+http-body = "1.0.1"
+bytes = "1.9.0"
+log = "0.4.26"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+tokio = { version = "1.41.1", features = ["sync", "macros", "net", "rt-multi-thread"] }
+axum = "0.7.8"
+axum-macros = { version = "0.4.2" }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+tokio = { version = "1.41.1", features = ["sync"] }
+axum = {version = "0.7.8", default-features = false, features = ["json"]}
+getrandom = { version = "0.2", features = ["js"] }
+
+[package.metadata.wasm-pack.profile.release]
+wasm-opt = false
+
+[package.metadata.wasm-pack.profile.dev]
+wasm-opt = false

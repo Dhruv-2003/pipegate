@@ -1,0 +1,59 @@
+{
+  "name": "pipegate-sdk",
+  "version": "0.6.0",
+  "description": "A TypeScript client-side payment authentication SDK for stablecoins used with axios",
+  "type": "module",
+  "main": "dist/cjs/index.js",
+  "module": "dist/esm/index.js",
+  "types": "dist/esm/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/esm/index.d.ts",
+      "import": "./dist/esm/index.js",
+      "require": "./dist/cjs/index.js",
+      "default": "./dist/esm/index.js"
+    },
+    "./wasm": {
+      "types": "./dist/esm/wasm/pipegate.d.ts",
+      "import": "./dist/esm/wasm/pipegate.js",
+      "require": "./dist/cjs/wasm/pipegate.js",
+      "default": "./dist/esm/wasm/pipegate.js"
+    }
+  },
+  "files": [
+    "dist",
+    "dist/esm",
+    "dist/cjs"
+  ],
+  "scripts": {
+    "cjs:build": "tsc -p tsconfig.cjs.json && mkdir -p dist/cjs/wasm && cp -r src/wasm/cjs/* dist/cjs/wasm && cp src/wasm/pipegate_bg.wasm dist/cjs/wasm/",
+    "esm:build": "tsc -p tsconfig.json && mkdir -p dist/esm/wasm && cp src/wasm/pipegate.js src/wasm/pipegate.d.ts src/wasm/pipegate_bg.wasm.d.ts dist/esm/wasm/ && cp src/wasm/pipegate_bg.wasm dist/esm/wasm/",
+    "verify:wasm": "node -e 'const fs=require(\"fs\");[\"dist/esm/wasm/pipegate_bg.wasm\",\"dist/cjs/wasm/pipegate_bg.wasm\"].forEach(p=>{if(!fs.existsSync(p)){console.error(\"Missing wasm asset:\",p);process.exit(1)}});console.log(\"WASM assets present\")'",
+    "build": "rm -rf dist && npm run cjs:build && npm run esm:build && npm run verify:wasm"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Dhruv-2003/pipegate"
+  },
+  "keywords": [
+    "typescript",
+    "axios",
+    "interceptor",
+    "stablecoins",
+    "payment-channel",
+    "ethereum"
+  ],
+  "license": "MIT",
+  "homepage": "https://github.com/Dhruv-2003/pipegate#readme",
+  "devDependencies": {
+    "@types/node": "^24.3.1"
+  },
+  "peerDependencies": {
+    "axios": "^1.x",
+    "typescript": "^5.7.2"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "viem": "^2.21.54"
+  }
+}
