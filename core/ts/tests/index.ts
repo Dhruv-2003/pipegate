@@ -13,8 +13,6 @@ async function testPaymentMiddlewareOneTime() {
   console.log("\nStarting SDK Interceptor Test...");
 
   try {
-    const sdk = new ClientInterceptor();
-
     const txHash =
       "0x1a06852ea01b05d1d311dc51c3b34b03258a97b8c1ef790435a0b6feca8dc2c2";
 
@@ -71,8 +69,6 @@ async function testPaymentMiddlewareStream() {
   console.log("\nStarting SDK Interceptor Test...");
 
   try {
-    const sdk = new ClientInterceptor();
-
     const streamSender = "0x898d0DBd5850e086E6C09D2c83A26Bb5F1ff8C33";
 
     const axiosInstance = withPaymentInterceptor(

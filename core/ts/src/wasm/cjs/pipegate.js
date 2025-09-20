@@ -1,5 +1,6 @@
 let imports = {};
 imports["__wbindgen_placeholder__"] = module.exports;
+imports["wbg"] = module.exports;
 let wasm;
 const { TextDecoder, TextEncoder } = require(`util`);
 
@@ -1038,7 +1039,7 @@ module.exports.__wbindgen_throw = function (arg0, arg1) {
   throw new Error(getStringFromWasm0(arg0, arg1));
 };
 
-const path = require("path").join(__dirname, "pipegate_bg.wasm");
+const path = require("path").join(__dirname, "../../wasm/pipegate_bg.wasm");
 const bytes = require("fs").readFileSync(path);
 
 const wasmModule = new WebAssembly.Module(bytes);
