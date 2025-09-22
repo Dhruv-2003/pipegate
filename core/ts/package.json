@@ -28,7 +28,7 @@
     "CHANGELOG.md"
   ],
   "scripts": {
-    "cjs:build": "tsc -p tsconfig.cjs.json && find dist/cjs -name '*.js' -exec sh -c 'sed -i \"\" \"s/\\.js/\\.cjs/g\" \"$1\" && mv \"$1\" \"${1%.js}.cjs\"' _ {} \\; && mkdir -p dist/cjs/wasm && cp -r src/wasm/cjs/* dist/cjs/wasm && find dist/cjs/wasm -name '*.js' -exec sh -c 'sed -i \"\" \"s/\\.js/\\.cjs/g\" \"$1\" && mv \"$1\" \"${1%.js}.cjs\"' _ {} \\;",
+    "cjs:build": "tsc -p tsconfig.cjs.json && find dist/cjs -name '*.js' -exec sh -c 'sed \"s/\\.js/\\.cjs/g\" \"$1\" > \"${1%.js}.cjs\" && rm \"$1\"' _ {} \\; && mkdir -p dist/cjs/wasm && cp -r src/wasm/cjs/* dist/cjs/wasm && find dist/cjs/wasm -name '*.js' -exec sh -c 'sed \"s/\\.js/\\.cjs/g\" \"$1\" > \"${1%.js}.cjs\" && rm \"$1\"' _ {} \\;",
     "esm:build": "tsc -p tsconfig.json && mkdir -p dist/esm/wasm && cp src/wasm/pipegate.js src/wasm/pipegate.d.ts src/wasm/pipegate_bg.wasm.d.ts dist/esm/wasm/",
     "copy:wasm": "mkdir -p dist/wasm && cp src/wasm/pipegate_bg.wasm dist/wasm/",
     "verify:wasm": "node -e 'const fs=require(\"fs\");if(!fs.existsSync(\"dist/wasm/pipegate_bg.wasm\")){console.error(\"Missing shared wasm asset\");process.exit(1)};console.log(\"WASM assets present\")'",
