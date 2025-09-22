@@ -3,37 +3,48 @@
   "version": "0.6.0",
   "description": "A TypeScript client-side payment authentication SDK for stablecoins used with axios",
   "type": "module",
-  "main": "dist/cjs/index.js",
+  "main": "dist/cjs/index.cjs",
   "module": "dist/esm/index.js",
   "types": "dist/esm/index.d.ts",
   "exports": {
     ".": {
       "types": "./dist/esm/index.d.ts",
       "import": "./dist/esm/index.js",
-      "require": "./dist/cjs/index.js",
+      "require": "./dist/cjs/index.cjs",
       "default": "./dist/esm/index.js"
     },
     "./wasm": {
       "types": "./dist/esm/wasm/pipegate.d.ts",
       "import": "./dist/esm/wasm/pipegate.js",
-      "require": "./dist/cjs/wasm/pipegate.js",
+      "require": "./dist/cjs/wasm/pipegate.cjs",
       "default": "./dist/esm/wasm/pipegate.js"
-    }
+    },
+    "./wasm/*": "./dist/wasm/*"
   },
   "files": [
     "dist",
-    "dist/esm",
-    "dist/cjs"
+    "LICENSE",
+    "README.md",
+    "CHANGELOG.md"
   ],
   "scripts": {
-    "cjs:build": "tsc -p tsconfig.cjs.json && mkdir -p dist/cjs/wasm && cp -r src/wasm/cjs/* dist/cjs/wasm && cp src/wasm/pipegate_bg.wasm dist/cjs/wasm/",
-    "esm:build": "tsc -p tsconfig.json && mkdir -p dist/esm/wasm && cp src/wasm/pipegate.js src/wasm/pipegate.d.ts src/wasm/pipegate_bg.wasm.d.ts dist/esm/wasm/ && cp src/wasm/pipegate_bg.wasm dist/esm/wasm/",
-    "verify:wasm": "node -e 'const fs=require(\"fs\");[\"dist/esm/wasm/pipegate_bg.wasm\",\"dist/cjs/wasm/pipegate_bg.wasm\"].forEach(p=>{if(!fs.existsSync(p)){console.error(\"Missing wasm asset:\",p);process.exit(1)}});console.log(\"WASM assets present\")'",
-    "build": "rm -rf dist && npm run cjs:build && npm run esm:build && npm run verify:wasm"
+    "cjs:build": "tsc -p tsconfig.cjs.json && find dist/cjs -name '*.js' -exec sh -c 'sed \"s/\\.js/\\.cjs/g\" \"$1\" > \"${1%.js}.cjs\" && rm \"$1\"' _ {} \\; && mkdir -p dist/cjs/wasm && cp -r src/wasm/cjs/* dist/cjs/wasm && find dist/cjs/wasm -name '*.js' -exec sh -c 'sed \"s/\\.js/\\.cjs/g\" \"$1\" > \"${1%.js}.cjs\" && rm \"$1\"' _ {} \\;",
+    "esm:build": "tsc -p tsconfig.json && mkdir -p dist/esm/wasm && cp src/wasm/pipegate.js src/wasm/pipegate.d.ts src/wasm/pipegate_bg.wasm.d.ts dist/esm/wasm/",
+    "copy:wasm": "mkdir -p dist/wasm && cp src/wasm/pipegate_bg.wasm dist/wasm/",
+    "verify:wasm": "node -e 'const fs=require(\"fs\");if(!fs.existsSync(\"dist/wasm/pipegate_bg.wasm\")){console.error(\"Missing shared wasm asset\");process.exit(1)};console.log(\"WASM assets present\")'",
+    "build": "rm -rf dist && npm run cjs:build && npm run esm:build && npm run copy:wasm && npm run verify:wasm",
+    "prepublishOnly": "npm run build"
   },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Dhruv-2003/pipegate"
+  },
+  "bugs": {
+    "url": "https://github.com/Dhruv-2003/pipegate/issues"
+  },
+  "author": "Dhruv Agarwal <dhruvagarwal2003@gmail.com>",
+  "engines": {
+    "node": ">=18.0.0"
   },
   "keywords": [
     "typescript",
@@ -49,8 +60,7 @@
     "@types/node": "^24.3.1"
   },
   "peerDependencies": {
-    "axios": "^1.x",
-    "typescript": "^5.7.2"
+    "axios": ">=1.0.0"
   },
   "dependencies": {
     "dotenv": "^16.4.5",
