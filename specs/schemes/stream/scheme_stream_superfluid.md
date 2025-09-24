@@ -210,7 +210,7 @@ The Superfluid protocol handles settlement automatically:
 
 #### Supported Networks
 
-- **All Superfluid Networks -Base, Arbitrum, Optimism**: Any network with Superfluid protocol deployment
+- **All Superfluid Networks - Base, Arbitrum, Optimism**: Any network with Superfluid protocol deployment
 
 ### Integration Examples
 

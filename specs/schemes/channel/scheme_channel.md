@@ -2,7 +2,7 @@
 
 ## Summary
 
-Payment channels enable high-frequency micropayments between API consumers and providers by creating off-chain payment commitments backed on-chain escrow. This scheme is ideal for use cases requiring many API calls with minimal per-transaction costs.
+Payment channels enable high-frequency micropayments between API consumers and providers by creating off-chain payment commitments backed by on-chain escrow. This scheme is ideal for use cases requiring many API calls with minimal per-transaction costs.
 
 ## Use Cases
 
