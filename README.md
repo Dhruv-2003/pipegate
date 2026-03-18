@@ -16,7 +16,7 @@ PipeGate transforms how APIs handle payments by replacing traditional API keys w
 
 As of version 0.6.0, PipeGate implements the [x402 payment protocol](https://x402.org), providing standardized payment headers and seamless integration across different payment schemes. This means better interoperability and a unified payment experience.
 
-### Detailed documentation: [docs.pipegate.xyz](https://docs.pipegate.xyz)
+### Detailed documentation: [docs.pipegate.xyz](https://docs.pipegate.0xdhruv.me)
 
 **The protocol consists of three main components:**
 
@@ -162,7 +162,7 @@ const client = withPaymentInterceptor(
 const response = await client.get("/api/endpoint");
 ```
 
-**Legacy usage instructions and detailed setup guides are available in our [documentation](https://docs.pipegate.xyz).**
+**Legacy usage instructions and detailed setup guides are available in our [documentation](https://docs.pipegate.0xdhruv.me).**
 
 ## Team
 
